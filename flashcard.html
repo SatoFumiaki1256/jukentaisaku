@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>フラッシュカード — 二級建築士製図</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;700;900&family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+    :root{
+      --bg:     #ebe7dc;
+      --surface:#faf7f0;
+      --ink:    #1a1a1a;
+      --inkSoft:#555555;
+      --rule:   #d4cfc0;
+      --red:    #d3312a;
+      --blue:   #2952c8;
+      --yellow: #f5c518;
+      --green:  #2e7d32;
+    }
+    body{background:var(--bg);color:var(--ink);
+      font-family:'Noto Sans JP','Hiragino Sans',sans-serif;
+      min-height:100dvh;overflow-x:hidden;}
+
+    /* ── TOPBAR ── */
+    #topbar{
+      position:fixed;top:0;left:0;right:0;height:48px;
+      background:var(--ink);
+      display:flex;align-items:center;padding:0 16px;gap:12px;z-index:100;
+    }
+    .back-btn{
+      color:#f0ede6;font-size:18px;cursor:pointer;
+      background:none;border:none;padding:4px;line-height:1;
+    }
+    .topbar-title{
+      font-family:'Archivo','Noto Sans JP',sans-serif;
+      font-size:13px;font-weight:900;color:#f0ede6;letter-spacing:.08em;
+      text-transform:uppercase;
+    }
+    .topbar-cat{
+      margin-left:auto;font-size:11px;color:#888;font-weight:700;
+    }
+
+    /* ── MAIN LAYOUT ── */
+    #main{
+      padding-top:48px;
+      min-height:100dvh;
+      display:flex;flex-direction:column;
+    }
+
+    /* ── CATEGORY TABS ── */
+    #cat-bar{
+      background:var(--surface);
+      border-bottom:2px solid var(--ink);
+      overflow-x:auto;
+      display:flex;
+      padding:0 12px;
+      gap:0;
+      scrollbar-width:none;
+    }
+    #cat-bar::-webkit-scrollbar{display:none;}
+    .cat-tab{
+      flex-shrink:0;
+      padding:10px 14px;
+      font-size:11px;font-weight:700;
+      color:var(--inkSoft);
+      cursor:pointer;
+      border-bottom:3px solid transparent;
+      white-space:nowrap;
+      transition:all .15s;
+      background:none;border-top:none;border-left:none;border-right:none;
+    }
+    .cat-tab.active{
+      color:var(--ink);
+      border-bottom-color:var(--ink);
+    }
+
+    /* ── PROGRESS ── */
+    #progress-wrap{
+      padding:12px 16px 0;
+      display:flex;align-items:center;gap:10px;
+    }
+    #progress-bar-bg{
+      flex:1;height:4px;background:var(--rule);border-radius:2px;overflow:hidden;
+    }
+    #progress-bar{height:100%;background:var(--ink);border-radius:2px;transition:width .3s;}
+    #progress-label{font-size:11px;color:var(--inkSoft);white-space:nowrap;font-weight:700;}
+
+    /* ── CARD AREA ── */
+    #card-area{
+      flex:1;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      padding:16px 16px 0;
+    }
+
+    /* 3D flip */
+    .card-scene{
+      width:100%;max-width:480px;
+      perspective:1000px;
+      cursor:pointer;
+      margin-bottom:16px;
+    }
+    .card-inner{
+      position:relative;
+      width:100%;
+      transition:transform .45s cubic-bezier(.4,0,.2,1);
+      transform-style:preserve-3d;
+    }
+    .card-inner.flipped{transform:rotateY(180deg);}
+    .card-face{
+      width:100%;
+      backface-visibility:hidden;
+      -webkit-backface-visibility:hidden;
+      background:var(--surface);
+      border:2px solid var(--ink);
+      padding:24px 20px;
+      min-height:220px;
+      display:flex;
+      flex-direction:column;
+      justify-content:space-between;
+    }
+    .card-face.back{
+      position:absolute;top:0;left:0;
+      transform:rotateY(180deg);
+      background:#fff;
+    }
+    .card-label{
+      font-size:9px;font-weight:900;letter-spacing:.15em;
+      text-transform:uppercase;color:var(--inkSoft);
+      margin-bottom:12px;
+      font-family:'Archivo',sans-serif;
+    }
+    .card-face.back .card-label{color:var(--blue);}
+    .card-question{
+      font-size:17px;font-weight:700;line-height:1.65;color:var(--ink);
+      flex:1;
+    }
+    .card-answer{
+      font-size:14px;line-height:1.8;color:var(--ink);
+      flex:1;white-space:pre-wrap;
+    }
+    .card-answer strong{color:var(--red);font-weight:900;}
+    .card-tap-hint{
+      font-size:10px;color:var(--inkSoft);text-align:right;margin-top:12px;
+    }
+    .card-diff{
+      display:flex;gap:3px;align-items:center;
+    }
+    .diff-star{font-size:10px;color:var(--rule);}
+    .diff-star.on{color:var(--yellow);}
+
+    /* ── SWIPE INDICATOR ── */
+    #swipe-hint{
+      font-size:10px;color:var(--inkSoft);text-align:center;
+      margin-bottom:8px;letter-spacing:.05em;
+    }
+
+    /* ── ACTION BUTTONS ── */
+    #action-btns{
+      display:flex;gap:12px;
+      width:100%;max-width:480px;
+      padding:0 0 24px;
+    }
+    .action-btn{
+      flex:1;padding:14px;
+      font-size:13px;font-weight:900;
+      border:2px solid var(--ink);
+      cursor:pointer;
+      font-family:'Noto Sans JP',sans-serif;
+      letter-spacing:.04em;
+      transition:all .1s;
+    }
+    .action-btn:active{transform:scale(.97);}
+    #btn-ng{background:var(--bg);color:var(--ink);}
+    #btn-ng:hover{background:var(--red);color:#fff;border-color:var(--red);}
+    #btn-ok{background:var(--ink);color:#f0ede6;}
+    #btn-ok:hover{background:#333;}
+    #btn-skip{
+      flex:0 0 auto;padding:14px 16px;
+      font-size:11px;font-weight:700;
+      border:2px solid var(--rule);
+      background:var(--bg);color:var(--inkSoft);cursor:pointer;
+      transition:all .1s;
+    }
+
+    /* action disabled */
+    #action-btns.hidden{visibility:hidden;}
+
+    /* ── RESULT SCREEN ── */
+    #result-screen{
+      display:none;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      padding:32px 16px;
+      min-height:calc(100dvh - 48px - 44px);
+    }
+    #result-screen.show{display:flex;}
+    .result-title{
+      font-family:'Archivo','Noto Sans JP',sans-serif;
+      font-size:28px;font-weight:900;
+      letter-spacing:-.01em;color:var(--ink);
+      margin-bottom:8px;
+    }
+    .result-sub{font-size:13px;color:var(--inkSoft);margin-bottom:24px;}
+    .result-score-wrap{
+      display:flex;gap:24px;margin-bottom:32px;
+    }
+    .result-score-box{
+      text-align:center;
+      background:var(--surface);
+      border:2px solid var(--ink);
+      padding:16px 24px;
+      min-width:90px;
+    }
+    .result-score-num{
+      font-family:'Archivo',sans-serif;
+      font-size:36px;font-weight:900;line-height:1;
+    }
+    .result-score-num.ok{color:var(--blue);}
+    .result-score-num.ng{color:var(--red);}
+    .result-score-label{font-size:10px;color:var(--inkSoft);margin-top:4px;font-weight:700;}
+    .result-btns{display:flex;flex-direction:column;gap:10px;width:100%;max-width:300px;}
+    .result-btn{
+      padding:14px;font-size:13px;font-weight:900;
+      border:2px solid var(--ink);cursor:pointer;
+      font-family:'Noto Sans JP',sans-serif;
+    }
+    #retry-ng-btn{background:var(--red);color:#fff;border-color:var(--red);}
+    #retry-all-btn{background:var(--ink);color:#f0ede6;}
+    #back-cat-btn{background:var(--bg);color:var(--ink);}
+
+    /* ── EMPTY STATE ── */
+    #empty-state{
+      display:none;
+      flex-direction:column;align-items:center;justify-content:center;
+      padding:60px 24px;text-align:center;
+      min-height:calc(100dvh - 200px);
+    }
+    #empty-state.show{display:flex;}
+    .empty-icon{font-size:48px;margin-bottom:16px;}
+    .empty-title{font-size:18px;font-weight:900;margin-bottom:8px;}
+    .empty-sub{font-size:13px;color:var(--inkSoft);}
+
+    /* ── SWIPE ANIMATION ── */
+    .card-scene.swipe-right .card-inner{
+      animation:swipeRight .35s forwards;
+    }
+    .card-scene.swipe-left .card-inner{
+      animation:swipeLeft .35s forwards;
+    }
+    @keyframes swipeRight{
+      to{transform:translateX(120%) rotate(15deg);opacity:0;}
+    }
+    @keyframes swipeLeft{
+      to{transform:translateX(-120%) rotate(-15deg);opacity:0;}
+    }
+
+    /* ── WEAK BADGE ── */
+    .weak-badge{
+      position:absolute;top:10px;right:10px;
+      font-size:9px;font-weight:700;
+      background:var(--red);color:#fff;
+      padding:2px 6px;
+      letter-spacing:.05em;
+    }
+  </style>
+</head>
+<body>
+
+<div id="topbar">
+  <button class="back-btn" onclick="location.href='index.html'">←</button>
+  <span class="topbar-title">Flash Cards</span>
+  <span class="topbar-cat" id="topbar-cat"></span>
+</div>
+
+<div id="main">
+
+  <!-- カテゴリタブ -->
+  <div id="cat-bar">
+    <button class="cat-tab active" data-cat="all">すべて</button>
+    <button class="cat-tab" data-cat="法規">法規</button>
+    <button class="cat-tab" data-cat="構造">構造</button>
+    <button class="cat-tab" data-cat="計算">計算</button>
+    <button class="cat-tab" data-cat="エスキス">エスキス</button>
+    <button class="cat-tab" data-cat="用語">用語</button>
+    <button class="cat-tab" data-cat="weak">苦手のみ 🔴</button>
+  </div>
+
+  <!-- プログレス -->
+  <div id="progress-wrap">
+    <div id="progress-bar-bg"><div id="progress-bar" style="width:0%"></div></div>
+    <span id="progress-label">0 / 0</span>
+  </div>
+
+  <!-- カードエリア -->
+  <div id="card-area">
+    <div class="card-scene" id="card-scene" onclick="flipCard()">
+      <div class="card-inner" id="card-inner">
+        <!-- 表面 -->
+        <div class="card-face front" id="card-front">
+          <div>
+            <div class="card-label">QUESTION</div>
+            <div class="card-question" id="card-q"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:flex-end;">
+            <div class="card-diff" id="card-diff"></div>
+            <div class="card-tap-hint">タップで答えを見る →</div>
+          </div>
+        </div>
+        <!-- 裏面 -->
+        <div class="card-face back" id="card-back">
+          <div>
+            <div class="card-label">ANSWER</div>
+            <div class="card-answer" id="card-a"></div>
+          </div>
+          <div class="card-tap-hint" style="text-align:left;margin-top:12px;font-size:10px;color:var(--inkSoft);">← タップで問題に戻る</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="swipe-hint">← もう一度 ／ わかった →</div>
+
+    <div id="action-btns">
+      <button class="action-btn" id="btn-ng" onclick="answer(false)">🔁 もう一度</button>
+      <button class="action-btn" id="btn-skip" onclick="skipCard()">スキップ</button>
+      <button class="action-btn" id="btn-ok" onclick="answer(true)">わかった ✓</button>
+    </div>
+  </div>
+
+  <!-- 結果画面 -->
+  <div id="result-screen">
+    <div class="result-title" id="result-title">セッション完了</div>
+    <div class="result-sub" id="result-sub"></div>
+    <div class="result-score-wrap">
+      <div class="result-score-box">
+        <div class="result-score-num ok" id="res-ok">0</div>
+        <div class="result-score-label">わかった</div>
+      </div>
+      <div class="result-score-box">
+        <div class="result-score-num ng" id="res-ng">0</div>
+        <div class="result-score-label">もう一度</div>
+      </div>
+    </div>
+    <div class="result-btns">
+      <button class="result-btn" id="retry-ng-btn" onclick="retryNG()">🔁 苦手カードを再挑戦</button>
+      <button class="result-btn" id="retry-all-btn" onclick="retryAll()">↺ もう一度最初から</button>
+      <button class="result-btn" id="back-cat-btn" onclick="backToCategories()">← カテゴリに戻る</button>
+    </div>
+  </div>
+
+  <!-- 空状態 -->
+  <div id="empty-state">
+    <div class="empty-icon">🎉</div>
+    <div class="empty-title">苦手カードなし！</div>
+    <div class="empty-sub">すべてのカードを正解しました。<br>他のカテゴリも練習してみましょう。</div>
+    <button class="result-btn" style="margin-top:20px;background:var(--ink);color:#f0ede6;border:2px solid var(--ink);padding:12px 24px;font-weight:900;font-size:13px;cursor:pointer;" onclick="backToCategories()">← カテゴリに戻る</button>
+  </div>
+
+</div>
+
+<script>
+// ── データ読み込み ──────────────────────────────────────
+let allCards = [];
+let deck = [];      // 現在のセッションのカード配列
+let deckIdx = 0;    // 現在のカードインデックス
+let sessionOK = 0;
+let sessionNG = 0;
+let ngCards = [];   // このセッションで間違えたカード
+let isFlipped = false;
+
+const WEAK_KEY = 'fc_weak'; // localStorage key for weak card ids
+
+function getWeakIds() {
+  try { return JSON.parse(localStorage.getItem(WEAK_KEY)) || []; }
+  catch { return []; }
+}
+function setWeakIds(ids) {
+  localStorage.setItem(WEAK_KEY, JSON.stringify(ids));
+}
+function markWeak(id) {
+  const ids = getWeakIds();
+  if(!ids.includes(id)) ids.push(id);
+  setWeakIds(ids);
+}
+function unmarkWeak(id) {
+  setWeakIds(getWeakIds().filter(x => x !== id));
+}
+
+// マークダウンの **bold** を <strong> に変換
+function renderAnswer(text) {
+  return text
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
+    .replace(/\n/g,'<br>');
+}
+
+// ── カテゴリ選択 ──────────────────────────────────────
+let currentCat = 'all';
+
+document.querySelectorAll('.cat-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    currentCat = tab.dataset.cat;
+    startSession(currentCat);
+  });
+});
+
+function startSession(cat) {
+  const weakIds = getWeakIds();
+  if(cat === 'weak') {
+    deck = allCards.filter(c => weakIds.includes(c.id));
+  } else if(cat === 'all') {
+    deck = [...allCards];
+  } else {
+    deck = allCards.filter(c => c.category === cat);
+  }
+
+  // シャッフル
+  for(let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+
+  deckIdx = 0;
+  sessionOK = 0;
+  sessionNG = 0;
+  ngCards = [];
+
+  document.getElementById('result-screen').classList.remove('show');
+  document.getElementById('empty-state').classList.remove('show');
+  document.getElementById('card-area').style.display = '';
+  document.getElementById('progress-wrap').style.display = '';
+
+  // カテゴリ名を topbar に表示
+  const catName = cat === 'all' ? 'すべて' : cat === 'weak' ? '苦手カード' : cat;
+  document.getElementById('topbar-cat').textContent = `${catName}  ${deck.length}枚`;
+
+  if(deck.length === 0) {
+    document.getElementById('card-area').style.display = 'none';
+    document.getElementById('progress-wrap').style.display = 'none';
+    document.getElementById('empty-state').classList.add('show');
+    return;
+  }
+  showCard();
+}
+
+// ── カード表示 ──────────────────────────────────────
+function showCard() {
+  if(deckIdx >= deck.length) {
+    showResult();
+    return;
+  }
+  const card = deck[deckIdx];
+  const weakIds = getWeakIds();
+
+  document.getElementById('card-q').textContent = card.front;
+  document.getElementById('card-a').innerHTML = renderAnswer(card.back);
+
+  // 難易度星
+  const diff = card.difficulty || 1;
+  document.getElementById('card-diff').innerHTML =
+    [1,2,3].map(i => `<span class="diff-star ${i<=diff?'on':''}">★</span>`).join('');
+
+  // 苦手バッジ
+  const existingBadge = document.querySelector('.weak-badge');
+  if(existingBadge) existingBadge.remove();
+  if(weakIds.includes(card.id)) {
+    const badge = document.createElement('div');
+    badge.className = 'weak-badge';
+    badge.textContent = '苦手';
+    document.getElementById('card-front').style.position = 'relative';
+    document.getElementById('card-front').appendChild(badge);
+  }
+
+  // 表面に戻す
+  isFlipped = false;
+  document.getElementById('card-inner').classList.remove('flipped');
+  document.getElementById('action-btns').classList.add('hidden');
+
+  // カードシーンのアニメーションクラスをリセット
+  const scene = document.getElementById('card-scene');
+  scene.classList.remove('swipe-right', 'swipe-left');
+  void scene.offsetWidth; // reflow
+
+  updateProgress();
+}
+
+function updateProgress() {
+  const total = deck.length;
+  const done  = deckIdx;
+  const pct   = total > 0 ? (done / total * 100) : 0;
+  document.getElementById('progress-bar').style.width = pct + '%';
+  document.getElementById('progress-label').textContent = `${done} / ${total}`;
+}
+
+function flipCard() {
+  if(deckIdx >= deck.length) return;
+  isFlipped = !isFlipped;
+  document.getElementById('card-inner').classList.toggle('flipped', isFlipped);
+  document.getElementById('action-btns').classList.toggle('hidden', !isFlipped);
+}
+
+function answer(ok) {
+  if(!isFlipped) return; // 答えを見てから判定
+  const card = deck[deckIdx];
+  if(ok) {
+    sessionOK++;
+    unmarkWeak(card.id);
+    animateSwipe('right', () => {
+      deckIdx++;
+      showCard();
+    });
+  } else {
+    sessionNG++;
+    markWeak(card.id);
+    ngCards.push(card);
+    animateSwipe('left', () => {
+      deckIdx++;
+      showCard();
+    });
+  }
+}
+
+function skipCard() {
+  animateSwipe('right', () => {
+    deckIdx++;
+    showCard();
+  });
+}
+
+function animateSwipe(dir, callback) {
+  const scene = document.getElementById('card-scene');
+  scene.classList.add(dir === 'right' ? 'swipe-right' : 'swipe-left');
+  setTimeout(callback, 350);
+}
+
+// ── スワイプジェスチャー ──────────────────────────────
+let touchStartX = 0, touchStartY = 0;
+
+document.getElementById('card-scene').addEventListener('touchstart', e => {
+  touchStartX = e.touches[0].clientX;
+  touchStartY = e.touches[0].clientY;
+}, {passive:true});
+
+document.getElementById('card-scene').addEventListener('touchend', e => {
+  if(!isFlipped) return; // 答え表示前はフリップのみ
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  const dy = e.changedTouches[0].clientY - touchStartY;
+  if(Math.abs(dx) < 50 || Math.abs(dy) > Math.abs(dx)) return; // 縦スワイプ or 短すぎは無視
+  if(dx > 50) answer(true);   // 右スワイプ = わかった
+  else         answer(false);  // 左スワイプ = もう一度
+}, {passive:true});
+
+// ── 結果画面 ──────────────────────────────────────
+function showResult() {
+  document.getElementById('card-area').style.display = 'none';
+  document.getElementById('progress-wrap').style.display = 'none';
+
+  const total = sessionOK + sessionNG;
+  const pct = total > 0 ? Math.round(sessionOK / total * 100) : 0;
+  const catName = currentCat === 'all' ? '全カード' : currentCat === 'weak' ? '苦手カード' : currentCat;
+
+  document.getElementById('result-title').textContent =
+    pct >= 80 ? '素晴らしい！' : pct >= 60 ? 'もう少し！' : '復習しよう';
+  document.getElementById('result-sub').textContent =
+    `${catName}  正解率 ${pct}%（${sessionOK}/${total}）`;
+  document.getElementById('res-ok').textContent = sessionOK;
+  document.getElementById('res-ng').textContent = sessionNG;
+
+  // 苦手カード再挑戦ボタン
+  document.getElementById('retry-ng-btn').style.display = ngCards.length > 0 ? '' : 'none';
+
+  document.getElementById('result-screen').classList.add('show');
+}
+
+function retryNG() {
+  deck = [...ngCards];
+  // シャッフル
+  for(let i = deck.length-1; i>0; i--) {
+    const j = Math.floor(Math.random()*(i+1));
+    [deck[i],deck[j]]=[deck[j],deck[i]];
+  }
+  deckIdx=0; sessionOK=0; sessionNG=0; ngCards=[];
+  document.getElementById('result-screen').classList.remove('show');
+  document.getElementById('card-area').style.display = '';
+  document.getElementById('progress-wrap').style.display = '';
+  showCard();
+}
+
+function retryAll() {
+  startSession(currentCat);
+}
+
+function backToCategories() {
+  document.getElementById('result-screen').classList.remove('show');
+  document.getElementById('empty-state').classList.remove('show');
+  document.getElementById('card-area').style.display = '';
+  document.getElementById('progress-wrap').style.display = '';
+  startSession(currentCat);
+}
+
+// ── キーボード操作（PC用） ──────────────────────────
+document.addEventListener('keydown', e => {
+  if(e.key === ' ' || e.key === 'Enter') { e.preventDefault(); flipCard(); }
+  if(e.key === 'ArrowRight') answer(true);
+  if(e.key === 'ArrowLeft')  answer(false);
+  if(e.key === 'ArrowDown')  skipCard();
+});
+
+// ── 初期化 ──────────────────────────────────────
+fetch('cards.json')
+  .then(r => r.json())
+  .then(data => {
+    allCards = data;
+    startSession('all');
+  })
+  .catch(() => {
+    document.getElementById('card-q').textContent = 'カードデータを読み込めませんでした。';
+  });
+</script>
+</body>
+</html>
