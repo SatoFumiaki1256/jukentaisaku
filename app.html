@@ -4185,14 +4185,26 @@ function loadProblem(p) {
   if(p.reqRooms && p.reqRooms.length) {
     document.getElementById('req-list').innerHTML = '';
     reqCounter = 0;
-    p.reqRooms.forEach(r => addReqRow(r.name || '', r.floor || 'どちらでも', r.area || '', r.notes || []));
+    p.reqRooms.forEach(r => {
+      // qty指定がある場合は室名に数量を追記
+      const name = r.qty ? `${r.name}（${r.qty}室）` : (r.name || '');
+      const area = r.area || (r.qty ? `各${r.area||'適宜'}` : '');
+      const notes = [...(r.notes || [])];
+      // カテゴリがある場合は先頭ノートに追記
+      if(r.category) notes.unshift(`設置階：${r.floor||''}（${r.category}）`);
+      addReqRow(name, r.floor || 'どちらでも', r.area || '', notes);
+    });
   }
 
-  // 外構条件
+  // 外構条件（notes配列 or 後方互換のnote文字列）
   if(p.exteriorConds && p.exteriorConds.length) {
     document.getElementById('ext-list').innerHTML = '';
     extCounter = 0;
-    p.exteriorConds.forEach(e => addExtRow(e.type || '駐車場', e.note || ''));
+    p.exteriorConds.forEach(e => {
+      // notesが配列の場合は連結して表示
+      const noteStr = e.notes && e.notes.length ? e.notes.join('／') : (e.note || '');
+      addExtRow(e.type || '駐車場', noteStr);
+    });
   }
 
   // パネルをロック（課題選択時）

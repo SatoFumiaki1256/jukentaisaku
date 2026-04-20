@@ -11,6 +11,7 @@
     :root{
       --bg:#ebe7dc; --surface:#faf7f0; --ink:#1a1a1a; --inkSoft:#555;
       --rule:#d4cfc0; --red:#d3312a; --blue:#2952c8; --yellow:#f5c518;
+      --green:#2e7d32;
     }
     body{background:var(--bg);color:var(--ink);font-family:'Noto Sans JP','Hiragino Sans',sans-serif;min-height:100dvh;}
 
@@ -23,62 +24,109 @@
     .topbar-title{font-family:'Archivo',sans-serif;font-size:12px;font-weight:900;color:#888;letter-spacing:.1em;text-transform:uppercase;}
 
     /* layout */
-    #content{max-width:540px;margin:0 auto;padding:20px 16px 120px;}
+    #content{max-width:600px;margin:0 auto;padding:20px 16px 120px;}
 
     /* difficulty badge */
     .diff-badge{
       display:inline-block;font-size:9px;font-weight:900;
-      padding:2px 8px;letter-spacing:.1em;text-transform:uppercase;
+      padding:3px 10px;letter-spacing:.12em;text-transform:uppercase;
       font-family:'Archivo',sans-serif;margin-bottom:8px;
     }
-    .diff-1{background:var(--blue);color:#fff;}
-    .diff-2{background:var(--yellow);color:var(--ink);}
-    .diff-3{background:var(--red);color:#fff;}
+    .diff-基礎{background:var(--blue);color:#fff;}
+    .diff-応用{background:var(--yellow);color:var(--ink);}
+    .diff-実践{background:var(--red);color:#fff;}
 
     /* title */
-    #prob-title{font-family:'Archivo','Noto Sans JP',sans-serif;font-size:22px;font-weight:900;line-height:1.3;margin-bottom:16px;}
+    #prob-title{font-family:'Archivo','Noto Sans JP',sans-serif;font-size:22px;font-weight:900;line-height:1.3;margin-bottom:4px;}
+    #prob-desc{font-size:11px;color:var(--inkSoft);line-height:1.6;margin-bottom:16px;}
 
     /* stats grid */
-    .stats-grid{display:grid;grid-template-columns:1fr 1fr;border:2px solid var(--ink);margin-bottom:16px;}
-    .stat-cell{padding:10px 12px;border-right:2px solid var(--ink);border-bottom:2px solid var(--ink);}
-    .stat-cell:nth-child(even){border-right:none;}
-    .stat-cell:nth-last-child(-n+2){border-bottom:none;}
-    .stat-label{font-size:9px;font-weight:700;color:var(--inkSoft);letter-spacing:.1em;text-transform:uppercase;font-family:'Archivo',sans-serif;margin-bottom:3px;}
-    .stat-val{font-size:15px;font-weight:900;color:var(--ink);}
+    .stats-grid{display:grid;grid-template-columns:1fr 1fr 1fr;border:2px solid var(--ink);margin-bottom:4px;}
+    .stat-cell{padding:9px 10px;border-right:2px solid var(--ink);border-bottom:2px solid var(--ink);}
+    .stat-cell:nth-child(3n){border-right:none;}
+    .stat-cell:nth-last-child(-n+3){border-bottom:none;}
+    .stat-label{font-size:8px;font-weight:700;color:var(--inkSoft);letter-spacing:.1em;font-family:'Archivo',sans-serif;margin-bottom:3px;}
+    .stat-val{font-size:14px;font-weight:900;color:var(--ink);}
+    .stat-sub{font-size:9px;color:var(--inkSoft);font-weight:400;margin-top:1px;}
 
     /* section header */
     .sec-head{
       font-size:9px;font-weight:900;letter-spacing:.15em;text-transform:uppercase;
       color:var(--inkSoft);font-family:'Archivo',sans-serif;
-      border-bottom:2px solid var(--ink);padding-bottom:6px;margin:20px 0 10px;
+      border-bottom:2px solid var(--ink);padding-bottom:6px;margin:22px 0 10px;
+    }
+
+    /* design conditions */
+    .cond-list{display:flex;flex-direction:column;gap:4px;margin-bottom:4px;}
+    .cond-item{
+      background:var(--surface);border-left:3px solid var(--blue);
+      padding:7px 10px;font-size:12px;line-height:1.5;
+      display:flex;gap:8px;align-items:baseline;
+    }
+    .cond-num{font-family:'Archivo',sans-serif;font-size:9px;font-weight:900;color:var(--blue);flex-shrink:0;}
+
+    /* structure notes */
+    .struct-list{display:flex;flex-direction:column;gap:4px;}
+    .struct-item{
+      background:var(--surface);border-left:3px solid var(--inkSoft);
+      padding:6px 10px;font-size:11px;color:var(--inkSoft);line-height:1.5;
+    }
+
+    /* floor area note */
+    .floor-area-note{
+      background:var(--surface);border-left:3px solid var(--yellow);
+      padding:6px 10px;font-size:10px;color:var(--inkSoft);line-height:1.5;
+      margin-top:4px;
     }
 
     /* site diagram */
-    #site-diagram-wrap{background:var(--surface);border:2px solid var(--ink);padding:12px;margin-bottom:4px;display:flex;justify-content:center;}
-    #site-diagram svg{width:min(180px,70vw);height:auto;}
-
-    /* rooms list */
-    .room-list{display:flex;flex-direction:column;gap:6px;}
-    .room-item{
-      background:var(--surface);border:1.5px solid var(--rule);
-      padding:8px 12px;display:flex;align-items:baseline;gap:8px;
+    #site-diagram-wrap{
+      background:var(--surface);border:2px solid var(--ink);
+      padding:12px;margin-bottom:4px;display:flex;justify-content:center;
     }
-    .room-name{font-size:13px;font-weight:700;}
-    .room-floor{font-size:10px;color:var(--blue);font-weight:700;}
-    .room-area{font-size:11px;color:var(--inkSoft);margin-left:auto;}
-    .room-note{font-size:10px;color:var(--inkSoft);width:100%;margin-top:3px;}
+    #site-diagram svg{width:min(200px,80vw);height:auto;}
 
-    /* exterior */
-    .ext-item{font-size:12px;padding:6px 12px;background:var(--surface);border:1.5px solid var(--rule);margin-bottom:5px;}
+    /* room table */
+    .room-table{width:100%;border-collapse:collapse;border:2px solid var(--ink);font-size:11px;}
+    .room-table th{
+      background:var(--ink);color:#f0ede6;font-size:9px;font-weight:700;
+      letter-spacing:.08em;padding:6px 8px;text-align:left;font-family:'Archivo',sans-serif;
+    }
+    .room-table td{padding:7px 8px;border-bottom:1px solid var(--rule);vertical-align:top;}
+    .room-table tr:last-child td{border-bottom:none;}
+    .room-table tr.cat-header td{
+      background:var(--ink);color:#ccc;font-size:9px;font-weight:700;
+      letter-spacing:.08em;padding:4px 8px;font-family:'Archivo',sans-serif;
+    }
+    .room-table tr.floor-header td{
+      background:#333;color:#aaa;font-size:8px;font-weight:700;
+      letter-spacing:.1em;padding:3px 8px;font-family:'Archivo',sans-serif;
+    }
+    .room-name-cell{font-weight:700;font-size:12px;}
+    .room-qty-badge{
+      display:inline-block;font-size:9px;font-weight:900;
+      background:var(--blue);color:#fff;padding:1px 5px;margin-left:4px;
+      font-family:'Archivo',sans-serif;
+    }
+    .room-area-cell{font-size:11px;color:var(--inkSoft);white-space:nowrap;}
+    .room-notes-cell{font-size:10px;color:var(--inkSoft);line-height:1.6;}
+    .room-notes-cell span{display:block;}
+    .room-notes-cell span::before{content:'ア';display:none;}
+
+    /* exterior list */
+    .ext-table{width:100%;border-collapse:collapse;border:2px solid var(--ink);}
+    .ext-table td{padding:8px 10px;border-bottom:1px solid var(--rule);vertical-align:top;font-size:11px;}
+    .ext-table tr:last-child td{border-bottom:none;}
+    .ext-type{font-weight:700;font-size:12px;white-space:nowrap;padding-right:12px;}
+    .ext-notes{color:var(--inkSoft);line-height:1.7;}
+    .ext-notes span{display:block;}
 
     /* saves */
     .save-slot{
       background:var(--surface);border:2px solid var(--ink);
       padding:12px 14px;margin-bottom:8px;
-      display:flex;align-items:center;gap:10px;cursor:pointer;
-      transition:background .12s;
+      display:flex;align-items:center;gap:10px;
     }
-    .save-slot:hover{background:#fff;}
     .save-slot-info{flex:1;min-width:0;}
     .save-slot-title{font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
     .save-slot-meta{font-size:10px;color:var(--inkSoft);margin-top:2px;}
@@ -109,39 +157,76 @@
     /* loading / error */
     #loading{text-align:center;padding:60px 20px;font-size:14px;color:var(--inkSoft);}
     #error{display:none;text-align:center;padding:60px 20px;font-size:14px;color:var(--red);}
+
+    /* coverage bonus note */
+    .coverage-note{font-size:9px;color:var(--inkSoft);margin-top:2px;}
   </style>
 </head>
 <body>
 
 <div id="topbar">
   <button class="back-btn" onclick="history.back()">←</button>
-  <span class="topbar-title">課題詳細</span>
+  <span class="topbar-title">設計課題</span>
 </div>
 
 <div id="content">
   <div id="loading">読み込み中...</div>
   <div id="error">課題データを読み込めませんでした</div>
   <div id="prob-body" style="display:none;">
+
     <div id="diff-badge" class="diff-badge"></div>
     <div id="prob-title"></div>
+    <div id="prob-desc"></div>
 
+    <!-- ① 設計条件 (3-col stats) -->
     <div class="stats-grid" id="stats-grid"></div>
 
-    <div class="sec-head">敷地周辺図</div>
-    <div id="site-diagram-wrap"><div id="site-diagram"></div></div>
-
-    <div class="sec-head">要求室</div>
-    <div class="room-list" id="room-list"></div>
-
-    <div id="ext-section" style="display:none;">
-      <div class="sec-head">外構条件</div>
-      <div id="ext-list"></div>
+    <!-- 設計条件 ①② → designConditions -->
+    <div id="design-cond-section" style="display:none;">
+      <div class="sec-head">設計上の留意事項</div>
+      <div class="cond-list" id="design-cond-list"></div>
     </div>
 
+    <!-- 構造・高さ条件 -->
+    <div id="struct-section" style="display:none;">
+      <div class="sec-head">構造・建築物の高さ等</div>
+      <div class="struct-list" id="struct-list"></div>
+    </div>
+
+    <!-- 延床面積 -->
+    <div class="sec-head">延べ面積等</div>
+    <div id="floor-area-block"></div>
+
+    <!-- 敷地図 -->
+    <div class="sec-head">敷地周辺図</div>
+    <div id="site-diagram-wrap"><div id="site-diagram"></div></div>
+    <div id="adj-note" style="font-size:10px;color:var(--inkSoft);margin-bottom:4px;"></div>
+
+    <!-- 要求室 -->
+    <div class="sec-head">要求室等</div>
+    <table class="room-table" id="room-table">
+      <thead>
+        <tr>
+          <th style="width:30%">室　名</th>
+          <th style="width:20%">面積</th>
+          <th>特記事項</th>
+        </tr>
+      </thead>
+      <tbody id="room-tbody"></tbody>
+    </table>
+
+    <!-- 屋外施設 -->
+    <div id="ext-section" style="display:none;">
+      <div class="sec-head">屋外施設等</div>
+      <table class="ext-table" id="ext-table"></table>
+    </div>
+
+    <!-- 保存済みエスキス -->
     <div class="sec-head">保存済みエスキス</div>
     <div id="saves-list">
       <p style="font-size:12px;color:var(--inkSoft);">この課題の保存済みエスキスはありません</p>
     </div>
+
   </div>
 </div>
 
@@ -162,12 +247,10 @@ const ADJ_COLORS = {
 
 let problem = null;
 
-// URL params
 const params = new URLSearchParams(location.search);
 const problemId = params.get('id');
 if(!problemId){ location.href='index.html'; }
 
-// Load problem
 fetch('problems.json')
   .then(r=>r.json())
   .then(data=>{
@@ -184,87 +267,196 @@ fetch('problems.json')
 function renderProblem(p) {
   document.getElementById('loading').style.display='none';
   document.getElementById('prob-body').style.display='';
-  document.title = p.title + ' — 課題詳細';
+  document.title = p.title + ' — 設計課題';
 
-  // difficulty
-  const diff = p.difficulty || 1;
+  // ── difficulty badge ─────────────────────
+  const diff = p.difficulty || '基礎';
   const diffEl = document.getElementById('diff-badge');
-  diffEl.textContent = diff===1?'基礎':diff===2?'応用':'発展';
+  diffEl.textContent = diff;
   diffEl.className = `diff-badge diff-${diff}`;
 
-  // title
+  // ── title / desc ─────────────────────────
   document.getElementById('prob-title').textContent = p.title;
+  if(p.desc) document.getElementById('prob-desc').textContent = p.desc;
 
-  // stats grid
+  // ── stats grid (3列) ─────────────────────
   const siteW = p.siteW ? (p.siteW/1000).toFixed(1)+'m' : '—';
   const siteH = p.siteH ? (p.siteH/1000).toFixed(1)+'m' : '—';
+  const floorAreaStr = (p.floorAreaMin || p.floorAreaMax)
+    ? `${p.floorAreaMin||''}㎡以上\n${p.floorAreaMax||''}㎡以下`
+    : (p.floorArea ? p.floorArea+'㎡' : '—');
+  const siteArea = p.siteW && p.siteH ? ((p.siteW/1000)*(p.siteH/1000)).toFixed(0)+'㎡' : '—';
+
   const stats = [
-    ['構造',    p.structure  || '—'],
-    ['用途地域', (p.zoning||'—').replace('地域','')],
-    ['敷地',    `${siteW} × ${siteH}`],
-    ['建蔽率',  p.coverage   ? p.coverage+'%' : '—'],
-    ['容積率',  p.far        ? p.far+'%' : '—'],
-    ['延床面積', p.floorAreaMin||p.floorAreaMax
-      ? `${p.floorAreaMin||''}〜${p.floorAreaMax||''}㎡`
-      : (p.floorArea ? p.floorArea+'㎡' : '—')],
+    {label:'構造・階数', val: p.structure||'—'},
+    {label:'用途地域',   val: (p.zoning||'—').replace('地域',''), sub: p.fireZone?`防火：${p.fireZone}`:null},
+    {label:'敷地面積',   val: siteArea, sub: `${siteW} × ${siteH}`},
+    {label:'建蔽率',     val: p.coverage ? p.coverage+'%' : '—', sub: p.coverageBonus ? '角地加算含む' : null},
+    {label:'容積率',     val: p.far ? p.far+'%' : '—'},
+    {label:'延べ面積',   val: (p.floorAreaMin||p.floorAreaMax) ? `${p.floorAreaMin||'?'}〜${p.floorAreaMax||'?'}㎡` : (p.floorArea?p.floorArea+'㎡':'—')},
   ];
-  document.getElementById('stats-grid').innerHTML = stats.map(([k,v])=>
-    `<div class="stat-cell"><div class="stat-label">${escHtml(k)}</div><div class="stat-val">${escHtml(v)}</div></div>`
+  document.getElementById('stats-grid').innerHTML = stats.map(s=>
+    `<div class="stat-cell">
+      <div class="stat-label">${escHtml(s.label)}</div>
+      <div class="stat-val">${escHtml(s.val)}</div>
+      ${s.sub ? `<div class="stat-sub">${escHtml(s.sub)}</div>` : ''}
+    </div>`
   ).join('');
 
-  // site diagram
-  renderSiteDiagram(p);
-
-  // rooms
-  const roomList = document.getElementById('room-list');
-  if(p.reqRooms && p.reqRooms.length){
-    roomList.innerHTML = p.reqRooms.map(r=>`
-      <div class="room-item" style="flex-wrap:wrap;">
-        <span class="room-name">${escHtml(r.name)}</span>
-        <span class="room-floor">${escHtml(r.floor||'')}</span>
-        <span class="room-area">${escHtml(r.area||'')}</span>
-        ${r.notes&&r.notes.length ? `<div class="room-note">${r.notes.map(n=>'・'+escHtml(n)).join('<br>')}</div>` : ''}
-      </div>`).join('');
-  } else {
-    roomList.innerHTML = '<p style="font-size:12px;color:var(--inkSoft);">要求室データなし</p>';
-  }
-
-  // exterior
-  if(p.exteriorConds && p.exteriorConds.length){
-    document.getElementById('ext-section').style.display='';
-    document.getElementById('ext-list').innerHTML = p.exteriorConds.map(e=>
-      `<div class="ext-item">${escHtml(e.type)}${e.note?' — '+escHtml(e.note):''}</div>`
+  // ── 設計上の留意事項 ────────────────────
+  if(p.designConditions && p.designConditions.length){
+    document.getElementById('design-cond-section').style.display='';
+    const NUMS = ['①','②','③','④','⑤'];
+    document.getElementById('design-cond-list').innerHTML = p.designConditions.map((c,i)=>
+      `<div class="cond-item">
+        <span class="cond-num">${NUMS[i]||'・'}</span>
+        <span>${escHtml(c)}</span>
+      </div>`
     ).join('');
   }
 
-  // saves
+  // ── 構造・建築物の高さ等 ─────────────────
+  const structItems = [];
+  if(p.maxHeight) structItems.push(`建築物の最高の高さは${p.maxHeight}m以下とする`);
+  if(p.eavesHeight) structItems.push(`軒の高さは${p.eavesHeight}m以下とする`);
+  const allStruct = [...structItems, ...(p.structureNotes||[])];
+  if(allStruct.length){
+    document.getElementById('struct-section').style.display='';
+    document.getElementById('struct-list').innerHTML = allStruct.map(s=>
+      `<div class="struct-item">・${escHtml(s)}</div>`
+    ).join('');
+  }
+
+  // ── 延べ面積 ───────────────────────────
+  let faHtml = '';
+  if(p.floorAreaMin || p.floorAreaMax){
+    faHtml += `<div style="background:var(--surface);border:2px solid var(--ink);padding:10px 14px;display:flex;align-items:baseline;gap:8px;">
+      <span style="font-size:11px;color:var(--inkSoft);">延べ面積は</span>
+      <span style="font-size:18px;font-weight:900;font-family:'Archivo',sans-serif;">${p.floorAreaMin||'?'}㎡</span>
+      <span style="font-size:11px;color:var(--inkSoft);">以上</span>
+      <span style="font-size:18px;font-weight:900;font-family:'Archivo',sans-serif;">${p.floorAreaMax||'?'}㎡</span>
+      <span style="font-size:11px;color:var(--inkSoft);">以下</span>
+    </div>`;
+  } else if(p.floorArea) {
+    faHtml += `<div style="background:var(--surface);border:2px solid var(--ink);padding:10px 14px;">
+      <span style="font-size:18px;font-weight:900;font-family:'Archivo',sans-serif;">${p.floorArea}㎡</span>
+      <span style="font-size:11px;color:var(--inkSoft);margin-left:6px;">程度</span>
+    </div>`;
+  }
+  if(p.floorAreaExclusion){
+    faHtml += `<div class="floor-area-note">※ ${escHtml(p.floorAreaExclusion)}</div>`;
+  }
+  document.getElementById('floor-area-block').innerHTML = faHtml;
+
+  // ── 敷地図 ─────────────────────────────
+  renderSiteDiagram(p);
+
+  // ── 要求室テーブル ───────────────────────
+  const tbody = document.getElementById('room-tbody');
+  if(p.reqRooms && p.reqRooms.length){
+    // floor / category でグルーピング
+    let currentFloor = null, currentCat = null;
+    let html = '';
+    p.reqRooms.forEach(r => {
+      const floor = r.floor || '—';
+      const cat   = r.category || '';
+      // 階ヘッダ
+      if(floor !== currentFloor){
+        currentFloor = floor;
+        currentCat   = null;
+        html += `<tr class="floor-header"><td colspan="3">■ ${escHtml(floor)}</td></tr>`;
+      }
+      // カテゴリヘッダ
+      if(cat && cat !== currentCat){
+        currentCat = cat;
+        html += `<tr class="cat-header"><td colspan="3">${escHtml(cat)}</td></tr>`;
+      }
+      // 室名（数量）
+      const qtyBadge = r.qty ? `<span class="room-qty-badge">${r.qty}室</span>` : '';
+      // 特記事項
+      const notesHtml = (r.notes && r.notes.length)
+        ? r.notes.map((n,i)=>`<span>${kanaNum(i)}. ${escHtml(n)}</span>`).join('')
+        : '<span style="color:#bbb;">指定なし</span>';
+
+      html += `<tr>
+        <td class="room-name-cell">${escHtml(r.name)}${qtyBadge}</td>
+        <td class="room-area-cell">${escHtml(r.area||'適宜')}</td>
+        <td class="room-notes-cell">${notesHtml}</td>
+      </tr>`;
+    });
+    tbody.innerHTML = html;
+  } else {
+    tbody.innerHTML = '<tr><td colspan="3" style="color:var(--inkSoft);font-size:12px;padding:12px;">要求室データなし</td></tr>';
+  }
+
+  // ── 屋外施設 ──────────────────────────
+  if(p.exteriorConds && p.exteriorConds.length){
+    document.getElementById('ext-section').style.display='';
+    const extTable = document.getElementById('ext-table');
+    extTable.innerHTML = p.exteriorConds.map(e=>{
+      // notes は配列 or 後方互換で note 文字列
+      const notesArr = e.notes && e.notes.length ? e.notes : (e.note ? [e.note] : []);
+      const notesHtml = notesArr.length
+        ? notesArr.map((n,i)=>`<span>${kanaNum(i)}. ${escHtml(n)}</span>`).join('')
+        : '<span style="color:#bbb;">—</span>';
+      return `<tr>
+        <td class="ext-type">${escHtml(e.type)}</td>
+        <td class="ext-notes">${notesHtml}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  // ── 保存済みエスキス ─────────────────────
   renderSaves(p.id);
 }
 
+// ア〜コの変換
+function kanaNum(i){
+  const k = ['ア','イ','ウ','エ','オ','カ','キ','ク','ケ','コ'];
+  return k[i] || String(i+1);
+}
+
 function renderSiteDiagram(p) {
-  const adj  = p.siteAdj || {};
-  const siteW= p.siteW || 10920;
-  const siteH= p.siteH || 13650;
-  const S=140, B=28, I=S-B*2, cx=S/2, cy=S/2;
+  const adj   = p.siteAdj || {};
+  const siteW = p.siteW || 10920;
+  const siteH = p.siteH || 13650;
+  const S=160, B=32, I=S-B*2, cx=S/2, cy=S/2;
   const c = t => ADJ_COLORS[t] || '#9E9E9E';
-  const adjL = (t,w) => t + (t==='道路'&&w?` ${w}m`:'');
+  const adjLabel = (d) => {
+    const a = adj[d];
+    if(!a) return '';
+    return a.type + (a.type==='道路' && a.width ? ` ${a.width}m` : '');
+  };
+  // 道路方向を太字マーク
+  const isRoad = d => adj[d]?.type === '道路';
 
   document.getElementById('site-diagram').innerHTML = `
-  <svg viewBox="0 0 ${S} ${S}" xmlns="http://www.w3.org/2000/svg" font-family="sans-serif">
-    <rect x="0"     y="0"     width="${S}"  height="${B}"  fill="${c(adj.N?.type||'宅地')}"/>
-    <rect x="0"     y="${S-B}" width="${S}"  height="${B}"  fill="${c(adj.S?.type||'宅地')}"/>
-    <rect x="0"     y="${B}"   width="${B}"  height="${I}"  fill="${c(adj.W?.type||'宅地')}"/>
+  <svg viewBox="0 0 ${S} ${S}" xmlns="http://www.w3.org/2000/svg" font-family="'Noto Sans JP',sans-serif">
+    <!-- 周辺地物 -->
+    <rect x="0"      y="0"      width="${S}"  height="${B}"  fill="${c(adj.N?.type||'宅地')}"/>
+    <rect x="0"      y="${S-B}" width="${S}"  height="${B}"  fill="${c(adj.S?.type||'宅地')}"/>
+    <rect x="0"      y="${B}"   width="${B}"  height="${I}"  fill="${c(adj.W?.type||'宅地')}"/>
     <rect x="${S-B}" y="${B}"   width="${B}"  height="${I}"  fill="${c(adj.E?.type||'宅地')}"/>
-    <rect x="${B}" y="${B}" width="${I}" height="${I}" fill="#f5f0e8" stroke="#6495ED" stroke-width="1.5"/>
-    <text x="${cx}" y="${B/2+4}" text-anchor="middle" font-size="8" fill="#222">${escHtml(adjL(adj.N?.type||'',adj.N?.width))}</text>
-    <text x="${cx}" y="${S-B/2+4}" text-anchor="middle" font-size="8" fill="#222">${escHtml(adjL(adj.S?.type||'',adj.S?.width))}</text>
-    <text x="${B/2}" y="${cy}" text-anchor="middle" font-size="8" fill="#222" transform="rotate(-90,${B/2},${cy})">${escHtml(adjL(adj.W?.type||'',adj.W?.width))}</text>
-    <text x="${S-B/2}" y="${cy}" text-anchor="middle" font-size="8" fill="#222" transform="rotate(90,${S-B/2},${cy})">${escHtml(adjL(adj.E?.type||'',adj.E?.width))}</text>
-    <text x="${cx}" y="${B-3}" text-anchor="middle" font-size="7" fill="#2952c8" font-weight="bold">${(siteW/1000).toFixed(2)}m</text>
-    <text x="${B-3}" y="${cy}" text-anchor="middle" font-size="7" fill="#2952c8" font-weight="bold" transform="rotate(-90,${B-3},${cy})">${(siteH/1000).toFixed(2)}m</text>
-    <text x="10" y="9" text-anchor="middle" font-size="7" fill="#6495ED" font-weight="bold">N</text>
-    <polygon points="10,12 7,20 13,20" fill="#6495ED" opacity=".7"/>
+    <!-- 敷地 -->
+    <rect x="${B}" y="${B}" width="${I}" height="${I}" fill="#f5f0e8" stroke="#1a1a1a" stroke-width="2"/>
+    <!-- ラベル -->
+    <text x="${cx}" y="${B/2+4}" text-anchor="middle" font-size="${isRoad('N')?9:8}" font-weight="${isRoad('N')?'bold':'normal'}" fill="${isRoad('N')?'#1a1a1a':'#444'}">${escHtml(adjLabel('N'))}</text>
+    <text x="${cx}" y="${S-B/2+4}" text-anchor="middle" font-size="${isRoad('S')?9:8}" font-weight="${isRoad('S')?'bold':'normal'}" fill="${isRoad('S')?'#1a1a1a':'#444'}">${escHtml(adjLabel('S'))}</text>
+    <text x="${B/2}" y="${cy}" text-anchor="middle" font-size="${isRoad('W')?9:8}" font-weight="${isRoad('W')?'bold':'normal'}" fill="${isRoad('W')?'#1a1a1a':'#444'}" transform="rotate(-90,${B/2},${cy})">${escHtml(adjLabel('W'))}</text>
+    <text x="${S-B/2}" y="${cy}" text-anchor="middle" font-size="${isRoad('E')?9:8}" font-weight="${isRoad('E')?'bold':'normal'}" fill="${isRoad('E')?'#1a1a1a':'#444'}" transform="rotate(90,${S-B/2},${cy})">${escHtml(adjLabel('E'))}</text>
+    <!-- 敷地寸法 -->
+    <text x="${cx}" y="${B-4}" text-anchor="middle" font-size="7.5" fill="#2952c8" font-weight="bold">${(siteW/1000).toFixed(2)}m</text>
+    <text x="${B-5}" y="${cy+3}" text-anchor="middle" font-size="7.5" fill="#2952c8" font-weight="bold" transform="rotate(-90,${B-5},${cy})">${(siteH/1000).toFixed(2)}m</text>
+    <!-- 北矢印 -->
+    <polygon points="${S-12},${B+8} ${S-9},${B+18} ${S-15},${B+18}" fill="#2952c8" opacity=".8"/>
+    <text x="${S-12}" y="${B+8}" text-anchor="middle" font-size="7" fill="#2952c8" font-weight="bold">N</text>
   </svg>`;
+
+  // 角地メモ
+  const roads = ['N','S','E','W'].filter(d=>adj[d]?.type==='道路');
+  if(roads.length >= 2 && p.coverageBonus){
+    document.getElementById('adj-note').textContent = '※ 角地指定あり（建蔽率加算を含む）';
+  }
 }
 
 function getAllSaves(){
@@ -293,7 +485,6 @@ function renderSaves(pid){
 
   el.querySelectorAll('[data-saveid]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
-      // selectedProblem をセットしてからapp.htmlへ遷移
       localStorage.setItem('selectedProblem', JSON.stringify({id:problem.id, title:problem.title}));
       location.href = `app.html?problemId=${encodeURIComponent(problem.id)}&saveId=${encodeURIComponent(btn.dataset.saveid)}`;
     });
@@ -310,7 +501,6 @@ function renderSaves(pid){
 
 function startNew(){
   if(!problem) return;
-  // selectedProblem をセットしてからapp.htmlへ遷移（課題条件を読み込ませるため）
   localStorage.setItem('selectedProblem', JSON.stringify({id:problem.id, title:problem.title}));
   location.href = `app.html?problemId=${encodeURIComponent(problem.id)}`;
 }
