@@ -1404,8 +1404,15 @@ function toggleChecklist() {
     renderChecklist(getChecklistData());
     updateSysCheckBtn();
     drawer.classList.add('open');
+    document.getElementById('overlay-blocker').classList.add('show');
   } else {
     drawer.classList.remove('open');
+    // overlayは他のパネルが開いていなければ非表示に
+    const condOpen = document.getElementById('cond-panel').classList.contains('open');
+    const roomOpen = document.getElementById('room-panel').classList.contains('open');
+    if(!condOpen && !roomOpen) {
+      document.getElementById('overlay-blocker').classList.remove('show');
+    }
   }
 }
 
@@ -2512,7 +2519,7 @@ function onDown(e) {
 
   // ① 選択済みオブジェクトのハンドル or 本体ドラッグを即時開始
   // 編集ツール時はドラッグを開始しない（タップのみでモーダルを開く）
-  if(state.selected && state.selected.kind === 'wall' && state.tool !== 'select') {
+  if(state.selected && state.selected.kind === 'wall' && state.tool !== 'select' && state.tool !== 'wall') {
     const w = state.walls.find(w => w.id === state.selected.id);
     if(w) {
       const ep = getWallEndpointAt(pos.x, pos.y, w);
@@ -2532,7 +2539,7 @@ function onDown(e) {
       }
     }
   }
-  if(state.selected && state.selected.kind === 'room' && state.tool !== 'select') {
+  if(state.selected && state.selected.kind === 'room' && state.tool !== 'select' && state.tool !== 'wall') {
     const r = state.rooms.find(ro => ro.id === state.selected.id);
     if(r) {
       // コーナーハンドル（リサイズ）
@@ -2580,8 +2587,8 @@ function onDown(e) {
     lastTapKey  = hitKey;
   }
 
-  // ③ 長押し → 部屋・壁のドラッグ移動（pan含む全ツール共通）
-  longPressTimer = setTimeout(() => {
+  // ③ 長押し → 部屋・壁のドラッグ移動（wallモード以外）
+  if(state.tool !== 'wall') longPressTimer = setTimeout(() => {
     longPressFired = true;
     longPressTimer = null;
     const lx = pointer.lastX, ly = pointer.lastY;
@@ -2741,13 +2748,14 @@ function handleDrag(pos) {
     showDimTip(p.x + r.w*state.view.scale, p.y,
       `${fmtMm(r.x)}, ${fmtMm(r.y)}`);
   } else {
-    // リサイズ
+    // リサイズ（固定辺を正確に維持してmmを保つ）
     const h = dragState.handle;
     let newX=origX, newY=origY, newW=origW, newH=origH;
-    if(h==='nw'){ newX=snap(origX+ddxMm); newY=snap(origY+ddyMm); newW=snap(origW-ddxMm); newH=snap(origH-ddyMm); }
-    if(h==='ne'){                          newY=snap(origY+ddyMm); newW=snap(origW+ddxMm); newH=snap(origH-ddyMm); }
-    if(h==='sw'){ newX=snap(origX+ddxMm);                          newW=snap(origW-ddxMm); newH=snap(origH+ddyMm); }
-    if(h==='se'){                                                   newW=snap(origW+ddxMm); newH=snap(origH+ddyMm); }
+    const fixedR = origX + origW, fixedB = origY + origH;
+    if(h==='nw'){ newX=snap(origX+ddxMm); newY=snap(origY+ddyMm); newW=fixedR-newX;  newH=fixedB-newY; }
+    if(h==='ne'){                          newY=snap(origY+ddyMm); newW=snap(fixedR+ddxMm)-origX; newH=fixedB-newY; }
+    if(h==='sw'){ newX=snap(origX+ddxMm);                          newW=fixedR-newX;  newH=snap(fixedB+ddyMm)-origY; }
+    if(h==='se'){                                                   newW=snap(fixedR+ddxMm)-origX; newH=snap(fixedB+ddyMm)-origY; }
     if(newW >= GRID && newH >= GRID) {
       const test = {...r, x:newX, y:newY, w:newW, h:newH};
       if(!others.some(ro => roomsOverlap(test, ro))) {
@@ -3083,6 +3091,8 @@ function switchTool(tool) {
   state.tool = tool;
   state.drawing = null;
   dragState = null;
+  // 壁ドローモードでは選択を解除
+  if(tool === 'wall') state.selected = null;
   document.querySelectorAll('.tbtn').forEach(b => b.classList.remove('active'));
   const btn = document.querySelector(`[data-tool="${tool}"]`);
   if(btn) btn.classList.add('active');
@@ -3277,6 +3287,7 @@ document.getElementById('cond-btn').onclick = () => {
 document.getElementById('overlay-blocker').onclick = () => {
   document.getElementById('cond-panel').classList.remove('open');
   document.getElementById('save-panel').classList.remove('open');
+  document.getElementById('checklist-drawer').classList.remove('open');
   closeRoomPanel();
   document.getElementById('overlay-blocker').classList.remove('show');
 };
