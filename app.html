@@ -495,7 +495,10 @@
 
 <!-- CONDITIONS PANEL -->
 <div id="cond-panel" class="panel">
-  <div class="panel-title">📋 課題条件</div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+    <div class="panel-title" style="margin-bottom:0;">📋 課題条件</div>
+    <button onclick="document.getElementById('cond-panel').classList.remove('open');document.getElementById('overlay-blocker').classList.remove('show');" style="background:none;border:1px solid var(--border);color:var(--sub);font-size:14px;cursor:pointer;border-radius:6px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">✕</button>
+  </div>
   <div id="cond-lock-banner">🔒 課題選択中 — 条件は変更できません</div>
   <div class="cform" id="cond-form">
     <div class="fgroup">
@@ -525,11 +528,19 @@
         <option value="準工業地域" data-slope="1.5">準工業地域</option>
       </select>
     </div>
-    <input type="hidden" id="c-site-w" value="10920">
-    <input type="hidden" id="c-site-d" value="13650">
+    <div class="fgroup-row">
+      <div class="fgroup">
+        <label>敷地幅 (mm)</label>
+        <input type="number" id="c-site-w" value="10920" step="455" min="1820" onchange="drawSiteDiagram()">
+      </div>
+      <div class="fgroup">
+        <label>敷地奥行 (mm)</label>
+        <input type="number" id="c-site-d" value="13650" step="455" min="1820" onchange="drawSiteDiagram()">
+      </div>
+    </div>
     <div class="fgroup">
       <label>敷地形状</label>
-      <select id="c-site-shape" onchange="onSiteShapeChange()">
+      <select id="c-site-shape" onchange="onSiteShapeChange();drawSiteDiagram();">
         <option value="rect">矩形（標準）</option>
         <option value="corner">隅切り</option>
         <option value="trapezoid">台形</option>
@@ -576,8 +587,17 @@
       </div>
     </div>
     <div class="fgroup">
-      <label>延床面積の目標 (m²)</label>
-      <input type="number" id="c-floor-area" placeholder="例: 120" step="1">
+      <label>延床面積 (m²)</label>
+      <div class="fgroup-row">
+        <div class="fgroup">
+          <label>最小</label>
+          <input type="number" id="c-floor-area-min" placeholder="例: 100" step="1">
+        </div>
+        <div class="fgroup">
+          <label>最大</label>
+          <input type="number" id="c-floor-area-max" placeholder="例: 150" step="1">
+        </div>
+      </div>
     </div>
     <div class="fgroup">
       <label>敷地周辺図</label>
@@ -665,7 +685,14 @@
       <label>その他の条件</label>
       <textarea id="c-notes" rows="3" placeholder="完全分離型：玄関・水回りを各世帯に設置..."></textarea>
     </div>
-    <button class="btn btn-p" id="apply-site-btn" style="margin-top:4px;">敷地を反映</button>
+    <div style="display:flex;gap:8px;margin-top:4px;">
+      <button class="btn btn-p" id="apply-site-btn" style="flex:1;">敷地を反映</button>
+      <button class="btn btn-s" id="save-problem-btn" style="flex:1;">📌 課題を保存</button>
+    </div>
+    <div id="saved-problems-section" style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px;">
+      <div style="font-size:10px;font-weight:bold;color:var(--sub);letter-spacing:.1em;margin-bottom:6px;">保存した課題</div>
+      <div id="saved-problems-list"></div>
+    </div>
   </div>
 </div>
 
@@ -721,7 +748,10 @@
   <span>要求室</span>
 </div>
 <div id="checklist-drawer">
-  <div class="panel-title">📋 要求室チェック</div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+    <div class="panel-title" style="margin-bottom:0;">📋 要求室チェック</div>
+    <button onclick="document.getElementById('checklist-drawer').classList.remove('open');" style="background:none;border:1px solid var(--border);color:var(--sub);font-size:14px;cursor:pointer;border-radius:6px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">✕</button>
+  </div>
   <div id="checklist-body"><p style="font-size:11px;color:var(--sub);text-align:center;padding:20px 0">課題を選択すると<br>チェックリストが表示されます</p></div>
   <div id="sys-check-btn-wrap" style="display:none;padding:12px 0 0;">
     <button id="sys-check-btn" class="btn btn-p" style="width:100%;font-size:12px;">🔍 システムチェックを実行</button>
@@ -1455,8 +1485,8 @@ function render() {
   ctx.fillStyle = '#f5f0e8';
   ctx.fillRect(0,0,W,H);
 
-  drawGrid(W, H);
   drawSite();
+  drawGrid(W, H);
   if(assistMode) drawAssistOverlay();
   state.rooms.forEach(drawRoom);
   state.walls.forEach(drawWall);
@@ -3312,6 +3342,11 @@ function drawSiteDiagram() {
     <text x="${cx}"    y="${S-B/2+4}"  text-anchor="middle" font-size="8" fill="#222">${adjLabel(adj.S.type,adj.S.width)}</text>
     <text x="${B/2}"   y="${cy}"       text-anchor="middle" font-size="8" fill="#222" transform="rotate(-90,${B/2},${cy})">${adjLabel(adj.W.type,adj.W.width)}</text>
     <text x="${S-B/2}" y="${cy}"       text-anchor="middle" font-size="8" fill="#222" transform="rotate(90,${S-B/2},${cy})">${adjLabel(adj.E.type,adj.E.width)}</text>
+    <!-- 対面ラベル（公園・水面など） -->
+    ${adj.N.type==='道路'&&adj.N.opposite ? `<text x="${cx}" y="4" text-anchor="middle" font-size="6" fill="#4CAF50">↑対面:${adj.N.opposite}${adj.N.oppositeWidth?` ${adj.N.oppositeWidth}m`:''}</text>` : ''}
+    ${adj.S.type==='道路'&&adj.S.opposite ? `<text x="${cx}" y="${S-1}" text-anchor="middle" font-size="6" fill="#4CAF50">↓対面:${adj.S.opposite}${adj.S.oppositeWidth?` ${adj.S.oppositeWidth}m`:''}</text>` : ''}
+    ${adj.W.type==='道路'&&adj.W.opposite ? `<text x="3" y="${cy+2}" text-anchor="middle" font-size="6" fill="#4CAF50" transform="rotate(-90,3,${cy})">${adj.W.opposite}${adj.W.oppositeWidth?` ${adj.W.oppositeWidth}m`:''}</text>` : ''}
+    ${adj.E.type==='道路'&&adj.E.opposite ? `<text x="${S-3}" y="${cy+2}" text-anchor="middle" font-size="6" fill="#4CAF50" transform="rotate(90,${S-3},${cy})">${adj.E.opposite}${adj.E.oppositeWidth?` ${adj.E.oppositeWidth}m`:''}</text>` : ''}
     <!-- 敷地寸法ラベル（青・敷地線の外側） -->
     ${wLabel ? `<text x="${cx}" y="${B-3}" text-anchor="middle" font-size="7.5" fill="#2952c8" font-weight="bold">${wLabel}</text>` : ''}
     ${wLabel ? `<text x="${cx}" y="${S-B+11}" text-anchor="middle" font-size="7.5" fill="#2952c8" font-weight="bold">${wLabel}</text>` : ''}
@@ -3533,7 +3568,9 @@ function checkFloorArea() {
 
   const coverageLimit = parseFloat(document.getElementById('c-coverage').value) || null;
   const farLimit      = parseFloat(document.getElementById('c-far').value)      || null;
-  const targetArea    = parseFloat(document.getElementById('c-floor-area').value) || null;
+  const floorAreaMin  = parseFloat(document.getElementById('c-floor-area-min')?.value) || null;
+  const floorAreaMax  = parseFloat(document.getElementById('c-floor-area-max')?.value) || null;
+  const targetArea    = floorAreaMin; // backward compat (used for display)
 
   // 1F rooms footprint
   const f1Rooms  = state.rooms.filter(r => getFloorForRoom(r) === '1F');
@@ -3548,10 +3585,13 @@ function checkFloorArea() {
 
   return {
     siteAreaM2, footprintM2, totalFloorM2, coverageRate, farRate,
-    coverageLimit, farLimit, targetArea,
+    coverageLimit, farLimit, targetArea, floorAreaMin, floorAreaMax,
     coverageOk: coverageLimit ? coverageRate <= coverageLimit + 0.5 : true,
     farOk:      farLimit      ? farRate      <= farLimit      + 0.5 : true,
-    targetOk:   targetArea    ? Math.abs(totalFloorM2 - targetArea) / targetArea <= 0.15 : true,
+    targetOk:   (floorAreaMin || floorAreaMax)
+      ? (floorAreaMin ? totalFloorM2 >= floorAreaMin - 0.5 : true) &&
+        (floorAreaMax ? totalFloorM2 <= floorAreaMax + 0.5 : true)
+      : true,
   };
 }
 
@@ -3947,7 +3987,10 @@ function loadProblem(p) {
   if(p.structure)      document.getElementById('c-struct').value     = p.structure;
   if(p.siteW)          document.getElementById('c-site-w').value     = p.siteW;
   if(p.siteH)          document.getElementById('c-site-d').value     = p.siteH;
-  if(p.floorArea)      document.getElementById('c-floor-area').value = p.floorArea;
+  if(p.floorAreaMin != null) { const el = document.getElementById('c-floor-area-min'); if(el) el.value = p.floorAreaMin; }
+  if(p.floorAreaMax != null) { const el = document.getElementById('c-floor-area-max'); if(el) el.value = p.floorAreaMax; }
+  // backward compat: old single floorArea field
+  if(p.floorArea != null && p.floorAreaMin == null) { const el = document.getElementById('c-floor-area-min'); if(el) el.value = p.floorArea; }
   if(p.coverage!=null) document.getElementById('c-coverage').value   = p.coverage;
   if(p.far!=null)      document.getElementById('c-far').value        = p.far;
   if(p.notes!=null)    document.getElementById('c-notes').value      = p.notes;
@@ -3996,6 +4039,109 @@ function loadProblem(p) {
   // チェックリストを更新
   setTimeout(refreshChecklistBadge, 50); // DOM反映を待つ
 }
+
+// ── 課題の保存・ロード ─────────────────────────────────
+const PROBLEM_SAVES_KEY = 'jukentaisaku_problem_saves';
+const MAX_PROBLEM_SAVES = 10;
+
+function getProblemSavesFromStorage() {
+  try { return JSON.parse(localStorage.getItem(PROBLEM_SAVES_KEY)) || []; }
+  catch { return []; }
+}
+
+function getConditionsFromDOM() {
+  const adj = getAdjFromDOM();
+  const reqItems = [];
+  document.querySelectorAll('#req-list .req-item').forEach(item => {
+    const name  = item.querySelector('[data-field="name"]')?.value  || '';
+    const floor = item.querySelector('[data-field="floor"]')?.value || 'どちらでも';
+    const area  = item.querySelector('[data-field="area"]')?.value  || '';
+    const notes = [];
+    item.querySelectorAll('.req-note-input').forEach(ni => { if(ni.value.trim()) notes.push(ni.value.trim()); });
+    reqItems.push({name, floor, area, notes});
+  });
+  const extItems = [];
+  document.querySelectorAll('#ext-list .ext-item').forEach(item => {
+    const type = item.querySelector('.ext-type')?.value || '';
+    const note = item.querySelector('.ext-note')?.value || '';
+    extItems.push({type, note});
+  });
+  return {
+    title:         document.getElementById('c-title')?.value        || '',
+    structure:     document.getElementById('c-struct')?.value       || '',
+    zoning:        document.getElementById('c-zoning')?.value       || '',
+    siteW:         parseInt(document.getElementById('c-site-w')?.value)  || 10920,
+    siteH:         parseInt(document.getElementById('c-site-d')?.value)  || 13650,
+    coverage:      parseFloat(document.getElementById('c-coverage')?.value) || null,
+    far:           parseFloat(document.getElementById('c-far')?.value)      || null,
+    floorAreaMin:  parseFloat(document.getElementById('c-floor-area-min')?.value) || null,
+    floorAreaMax:  parseFloat(document.getElementById('c-floor-area-max')?.value) || null,
+    notes:         document.getElementById('c-notes')?.value        || '',
+    siteAdj:       adj,
+    reqRooms:      reqItems,
+    exteriorConds: extItems,
+  };
+}
+
+function saveProblemToStorage() {
+  const conds = getConditionsFromDOM();
+  const title = conds.title || '無題の課題';
+  const saves = getProblemSavesFromStorage();
+  const id    = Date.now().toString();
+  saves.unshift({ id, title, savedAt: new Date().toISOString(), data: conds });
+  if(saves.length > MAX_PROBLEM_SAVES) saves.length = MAX_PROBLEM_SAVES;
+  localStorage.setItem(PROBLEM_SAVES_KEY, JSON.stringify(saves));
+  showSnack(`「${title}」を保存しました`);
+  renderSavedProblems();
+}
+
+function renderSavedProblems() {
+  const list = document.getElementById('saved-problems-list');
+  if(!list) return;
+  const saves = getProblemSavesFromStorage();
+  if(!saves.length) {
+    list.innerHTML = '<p style="font-size:10px;color:var(--sub);text-align:center;padding:8px 0">保存した課題はありません</p>';
+    return;
+  }
+  list.innerHTML = saves.map(s => `
+    <div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--border);">
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:11px;font-weight:bold;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(s.title)}</div>
+        <div style="font-size:9px;color:var(--sub);">${new Date(s.savedAt).toLocaleDateString('ja-JP')}</div>
+      </div>
+      <button class="btn btn-s" style="font-size:10px;padding:3px 8px;" data-action="load-problem" data-id="${escHtml(s.id)}">ロード</button>
+      <button class="btn btn-d" style="font-size:10px;padding:3px 8px;" data-action="del-problem" data-id="${escHtml(s.id)}">削除</button>
+    </div>
+  `).join('');
+}
+
+document.getElementById('saved-problems-list')?.addEventListener('click', e => {
+  const btn = e.target.closest('[data-action]');
+  if(!btn) return;
+  const id = btn.dataset.id;
+  const saves = getProblemSavesFromStorage();
+  if(btn.dataset.action === 'load-problem') {
+    const s = saves.find(x => x.id === id);
+    if(s) {
+      // パネルロックを解除してからロード
+      document.getElementById('cond-panel').classList.remove('locked');
+      loadProblem(s.data);
+      // ロック表示はしない（ユーザー作成課題は編集可能）
+      document.getElementById('cond-panel').classList.remove('locked');
+      showSnack(`「${escHtml(s.title)}」をロードしました`);
+    }
+  } else if(btn.dataset.action === 'del-problem') {
+    const newSaves = saves.filter(x => x.id !== id);
+    localStorage.setItem(PROBLEM_SAVES_KEY, JSON.stringify(newSaves));
+    renderSavedProblems();
+    showSnack('削除しました');
+  }
+});
+
+document.getElementById('save-problem-btn').onclick = saveProblemToStorage;
+
+// 初期表示
+renderSavedProblems();
 
 // スクリプトはbody末尾にあるのでDOMは確実に構築済み
 init();
