@@ -510,9 +510,7 @@ function loadMyEskisu(id) {
 renderMyEskisu();
 
 function startProblem(id) {
-  const p = PROBLEMS.find(p => p.id === id);
-  localStorage.setItem('selectedProblem', JSON.stringify(p));
-  location.href = 'app.html';
+  location.href = `problem-detail.html?id=${id}`;
 }
 
 const diffClass = {

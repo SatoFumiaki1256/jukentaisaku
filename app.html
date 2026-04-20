@@ -235,6 +235,7 @@
       border-radius:6px;color:var(--text);padding:7px 8px;font-size:12px;
     }
     .modal-actions{display:flex;gap:8px;margin-top:14px;}
+    .m-conn-sel{font-size:11px !important;padding:5px 6px !important;}
     .btn{flex:1;padding:10px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:bold;}
     .btn-p{background:var(--accent);color:#fff;}
     .btn-d{background:var(--danger);color:#fff;}
@@ -727,6 +728,15 @@
       <label>メモ</label>
       <input type="text" id="m-note" placeholder="必要面積など">
     </div>
+    <div class="modal-row full" style="flex-direction:column;gap:4px;">
+      <label style="font-size:11px;font-weight:700;color:var(--sub);">コネクト（隣接・一体）</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+        <select id="m-conn-0" class="m-conn-sel"><option value="">── なし ──</option></select>
+        <select id="m-conn-1" class="m-conn-sel"><option value="">── なし ──</option></select>
+        <select id="m-conn-2" class="m-conn-sel"><option value="">── なし ──</option></select>
+        <select id="m-conn-3" class="m-conn-sel"><option value="">── なし ──</option></select>
+      </div>
+    </div>
     <div class="modal-actions">
       <button class="btn btn-s" id="m-cancel">キャンセル</button>
       <button class="btn btn-d" id="m-delete">削除</button>
@@ -999,8 +1009,9 @@ const ROOM_TYPES = [
 // STATE
 // ======================================================
 let state = {
-  walls: [],   // {id, x1,y1,x2,y2}  in mm
-  rooms: [],   // {id, x,y,w,h, name,type,note}  in mm
+  walls: [],       // {id, x1,y1,x2,y2}  in mm
+  rooms: [],       // {id, x,y,w,h, name,type,note}  in mm
+  connections: [], // {id, roomId1, roomId2}
   site: {x:0, y:0, w:10920, h:13650,   // mm
     cornerCuts:{NE:0,NW:0,SE:0,SW:0}, trapShortH:0, trapShortSide:'E'},
   view: {ox:40, oy:60, scale:0.055},   // px = mm*scale + offset
@@ -1420,7 +1431,7 @@ function toggleChecklist() {
 // HISTORY
 // ======================================================
 function saveHistory() {
-  const snap = JSON.stringify({walls:state.walls, rooms:state.rooms});
+  const snap = JSON.stringify({walls:state.walls, rooms:state.rooms, connections:state.connections});
   state.history = state.history.slice(0, state.histIdx+1);
   state.history.push(snap);
   if(state.history.length > 60) state.history.shift();
@@ -1431,7 +1442,7 @@ function undo() {
   if(state.histIdx <= 0) return;
   state.histIdx--;
   const s = JSON.parse(state.history[state.histIdx]);
-  state.walls = s.walls; state.rooms = s.rooms;
+  state.walls = s.walls; state.rooms = s.rooms; state.connections = s.connections || [];
   state.selected = null;
   render(); updateAreaOverlay();
 }
@@ -1439,7 +1450,7 @@ function redo() {
   if(state.histIdx >= state.history.length-1) return;
   state.histIdx++;
   const s = JSON.parse(state.history[state.histIdx]);
-  state.walls = s.walls; state.rooms = s.rooms;
+  state.walls = s.walls; state.rooms = s.rooms; state.connections = s.connections || [];
   state.selected = null;
   render(); updateAreaOverlay();
 }
@@ -1496,6 +1507,7 @@ function render() {
   drawGrid(W, H);
   if(assistMode) drawAssistOverlay();
   state.rooms.forEach(drawRoom);
+  drawConnections();
   state.walls.forEach(drawWall);
   if(state.drawing) drawPreview();
   if(state.selected) drawSelection();
@@ -1669,6 +1681,43 @@ function drawGrid(W, H) {
       ctx.fillText((mx/1000).toFixed(3).replace(/\.?0+$/,'')+'m', px+2, 10);
     }
   }
+}
+
+// ── コネクト線描画 ──────────────────────────────────────
+function drawConnections() {
+  if(!state.connections || state.connections.length === 0) return;
+  const v = state.view;
+  ctx.save();
+  ctx.lineWidth = Math.max(2, 3 * v.scale / 0.055);
+  ctx.strokeStyle = 'rgba(52, 120, 246, 0.85)';
+  ctx.setLineDash([Math.max(4, 8*v.scale/0.055), Math.max(3, 5*v.scale/0.055)]);
+  ctx.lineCap = 'round';
+
+  state.connections.forEach(conn => {
+    const r1 = state.rooms.find(r => r.id === conn.roomId1);
+    const r2 = state.rooms.find(r => r.id === conn.roomId2);
+    if(!r1 || !r2) return;
+    // center of each room in screen coords
+    const c1 = mmToScreen(r1.x + r1.w/2, r1.y + r1.h/2);
+    const c2 = mmToScreen(r2.x + r2.w/2, r2.y + r2.h/2);
+    ctx.beginPath();
+    ctx.moveTo(c1.x, c1.y);
+    ctx.lineTo(c2.x, c2.y);
+    ctx.stroke();
+
+    // Draw small filled circle at midpoint
+    const mx = (c1.x + c2.x) / 2;
+    const my = (c1.y + c2.y) / 2;
+    const r = Math.max(4, 5*v.scale/0.055);
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(52, 120, 246, 0.85)';
+    ctx.beginPath();
+    ctx.arc(mx, my, r, 0, Math.PI*2);
+    ctx.fill();
+    ctx.setLineDash([Math.max(4, 8*v.scale/0.055), Math.max(3, 5*v.scale/0.055)]);
+  });
+
+  ctx.restore();
 }
 
 // ── 敷地形状 ──────────────────────────────────────────
@@ -2310,6 +2359,7 @@ function animateTrashDelete(roomId, wallId = null) {
       targetX:tx, targetY:ty,
     };
     state.rooms = state.rooms.filter(ro => ro.id !== roomId);
+    state.connections = (state.connections||[]).filter(c => c.roomId1!==roomId && c.roomId2!==roomId);
     state.selected = null;
     saveHistory(); updateAreaOverlay();
   }
@@ -2327,7 +2377,10 @@ function animateTrashDelete(roomId, wallId = null) {
 function deleteSelected() {
   if(!state.selected) return;
   if(state.selected.kind === 'room') {
-    state.rooms = state.rooms.filter(r => r.id !== state.selected.id);
+    const rid = state.selected.id;
+    state.rooms = state.rooms.filter(r => r.id !== rid);
+    // 削除した部屋に繋がるconn線も削除
+    state.connections = (state.connections||[]).filter(c => c.roomId1!==rid && c.roomId2!==rid);
   } else if(state.selected.kind === 'wall') {
     state.walls = state.walls.filter(w => w.id !== state.selected.id);
   }
@@ -3050,6 +3103,22 @@ function openRoomModal(room) {
   document.getElementById('m-note').value = room.note || '';
   const sel = document.getElementById('m-type');
   sel.innerHTML = ROOM_TYPES.map(t=>`<option value="${t.key}" ${t.key===room.type?'selected':''}>${t.key}</option>`).join('');
+
+  // コネクト選択ボックスを初期化
+  const otherRooms = state.rooms.filter(r => r.id !== room.id);
+  const optionsHtml = `<option value="">── なし ──</option>` +
+    otherRooms.map(r => `<option value="${escHtml(r.id)}">${escHtml(r.name||r.type)}</option>`).join('');
+
+  // 現在このroomに繋がっているconnections
+  const myConns = (state.connections||[]).filter(c => c.roomId1===room.id || c.roomId2===room.id);
+  const connectedIds = myConns.map(c => c.roomId1===room.id ? c.roomId2 : c.roomId1);
+
+  for(let i=0; i<4; i++) {
+    const el = document.getElementById(`m-conn-${i}`);
+    el.innerHTML = optionsHtml;
+    el.value = connectedIds[i] || '';
+  }
+
   document.getElementById('modal-overlay').classList.add('open');
 }
 
@@ -3062,13 +3131,34 @@ document.getElementById('m-ok').onclick = () => {
     r.w = parseInt(document.getElementById('m-w').value) || r.w;
     r.h = parseInt(document.getElementById('m-h').value) || r.h;
     r.note = document.getElementById('m-note').value;
+
+    // コネクト線を更新: このroomのconnectionsをいったん削除して再構築
+    state.connections = (state.connections||[]).filter(c => c.roomId1 !== r.id && c.roomId2 !== r.id);
+    const seen = new Set();
+    for(let i=0; i<4; i++) {
+      const targetId = document.getElementById(`m-conn-${i}`).value;
+      if(!targetId || seen.has(targetId)) continue;
+      // 逆向きの重複チェック
+      const dup = state.connections.some(c =>
+        (c.roomId1===r.id && c.roomId2===targetId) ||
+        (c.roomId1===targetId && c.roomId2===r.id)
+      );
+      if(!dup) {
+        state.connections.push({id: `conn_${Date.now()}_${i}`, roomId1:r.id, roomId2:targetId});
+        seen.add(targetId);
+      }
+    }
+
     saveHistory(); updateAreaOverlay(); render();
   }
   closeModal();
 };
 document.getElementById('m-delete').onclick = () => {
   if(!editingRoom) return;
-  state.rooms = state.rooms.filter(r=>r.id!==editingRoom.id);
+  const rid = editingRoom.id;
+  state.rooms = state.rooms.filter(r=>r.id!==rid);
+  // 削除した部屋に繋がるconn線も削除
+  state.connections = (state.connections||[]).filter(c => c.roomId1!==rid && c.roomId2!==rid);
   state.selected = null;
   saveHistory(); updateAreaOverlay(); render();
   closeModal();
@@ -3727,6 +3817,17 @@ function getAllSaves() {
 }
 
 function getCurrentProblemInfo() {
+  // URL params が優先 (?problemId=X)
+  const urlParams = new URLSearchParams(window.location.search);
+  const pidUrl = urlParams.get('problemId');
+  if(pidUrl) {
+    // problems.json は同期読み込みできないので、localStorage の selectedProblem も参照
+    try {
+      const sp = localStorage.getItem('selectedProblem');
+      if(sp) { const p = JSON.parse(sp); if(String(p.id) === String(pidUrl)) return {id:p.id, title:p.title}; }
+    } catch(e) {}
+    return {id: parseInt(pidUrl)||pidUrl, title: null};
+  }
   try {
     const sp = localStorage.getItem('selectedProblem');
     if(sp) { const p = JSON.parse(sp); return {id:p.id, title:p.title}; }
@@ -3745,6 +3846,7 @@ function saveCurrentWork(title) {
     problemTitle: prob.title,
     rooms: JSON.parse(JSON.stringify(state.rooms)),
     walls: JSON.parse(JSON.stringify(state.walls)),
+    connections: JSON.parse(JSON.stringify(state.connections||[])),
     site:  JSON.parse(JSON.stringify(state.site)),
   };
   saves.unshift(entry);
@@ -3756,8 +3858,9 @@ function saveCurrentWork(title) {
 function loadSavedWork(id) {
   const entry = getAllSaves().find(s => s.id === id);
   if(!entry) return;
-  state.rooms    = entry.rooms || [];
-  state.walls    = entry.walls || [];
+  state.rooms       = entry.rooms || [];
+  state.walls       = entry.walls || [];
+  state.connections = entry.connections || [];
   if(entry.site) state.site = {...state.site, ...entry.site};
   state.selected = null;
   saveHistory();
@@ -3774,11 +3877,16 @@ function deleteSave(id) {
 }
 
 function renderSaveList() {
-  const saves = getAllSaves();
+  const prob  = getCurrentProblemInfo();
+  const allSaves = getAllSaves();
+  // 課題に紐づいている場合はその課題のセーブのみ表示
+  const saves = prob.id != null
+    ? allSaves.filter(s => String(s.problemId) === String(prob.id))
+    : allSaves;
   const list  = document.getElementById('save-list');
   if(!list) return;
   if(saves.length === 0) {
-    list.innerHTML = '<p style="color:var(--sub);font-size:11px;text-align:center;padding:16px 0">保存されたエスキスはありません</p>';
+    list.innerHTML = '<p style="color:var(--sub);font-size:11px;text-align:center;padding:16px 0">この課題の保存データはありません</p>';
     return;
   }
   list.innerHTML = saves.map(s => {
@@ -3956,14 +4064,46 @@ function init() {
   // Center view on site
   fitViewToSite();
 
-  // index.html のマイエスキスからロード要求があれば優先
+  // URL パラメータから problemId / saveId を読み取る
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlSaveId    = urlParams.get('saveId');
+  const urlProblemId = urlParams.get('problemId');
+
+  // saveId 指定があればそのセーブをロード（最優先）
+  if(urlSaveId) {
+    const entry = getAllSaves().find(s => s.id === urlSaveId);
+    if(entry) {
+      state.rooms       = entry.rooms || [];
+      state.walls       = entry.walls || [];
+      state.connections = entry.connections || [];
+      if(entry.site) state.site = {...state.site, ...entry.site};
+      fitViewToSite();
+      saveHistory();
+      render(); updateAreaOverlay(); refreshChecklistBadge();
+      // selectedProblem も更新しておく
+      if(urlProblemId) {
+        try {
+          const sp = localStorage.getItem('selectedProblem');
+          if(!sp || String(JSON.parse(sp).id) !== String(urlProblemId)) {
+            // problems.json から取得は非同期なので title は entry から
+            localStorage.setItem('selectedProblem', JSON.stringify({id: parseInt(urlProblemId)||urlProblemId, title: entry.problemTitle||null}));
+          }
+        } catch(e) {}
+      }
+      showSnack(`「${entry.title}」をロードしました`);
+      return;
+    }
+  }
+
+  // index.html のマイエスキスからロード要求があれば（旧方式・後方互換）
   const loadSaveId = localStorage.getItem('load_save_id');
   if(loadSaveId) {
     localStorage.removeItem('load_save_id');
     const entry = getAllSaves().find(s => s.id === loadSaveId);
     if(entry) {
-      state.rooms = entry.rooms || [];
-      state.walls = entry.walls || [];
+      state.rooms       = entry.rooms || [];
+      state.walls       = entry.walls || [];
+      state.connections = entry.connections || [];
       if(entry.site) state.site = {...state.site, ...entry.site};
       fitViewToSite();
       saveHistory();
@@ -3971,6 +4111,18 @@ function init() {
       showSnack(`「${entry.title}」をロードしました`);
       return;
     }
+  }
+
+  // problemId 指定があれば selectedProblem を更新
+  if(urlProblemId) {
+    try {
+      const sp = localStorage.getItem('selectedProblem');
+      const cur = sp ? JSON.parse(sp) : null;
+      if(!cur || String(cur.id) !== String(urlProblemId)) {
+        // title は localStorage にない場合 null（loadProblem 時に問題JSONから取得）
+        localStorage.setItem('selectedProblem', JSON.stringify({id:parseInt(urlProblemId)||urlProblemId, title:cur?.title||null}));
+      }
+    } catch(e) {}
   }
 
   // localStorage から選択された課題を読み込む
