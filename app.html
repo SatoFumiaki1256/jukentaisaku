@@ -1,0 +1,4004 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#1a1a1a">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;700;900&family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
+  <link rel="manifest" href="manifest.json">
+  <title>エスキスアプリ</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+    :root{
+      /* Bauhaus-inspired dark theme for drawing tool */
+      --bg:     #1a1a1a;      /* Bauhaus ink */
+      --panel:  #242424;      /* slightly lighter */
+      --border: #3a3a3a;
+      --accent: #2952c8;      /* Bauhaus blue */
+      --danger: #d3312a;      /* Bauhaus red */
+      --yellow: #f5c518;      /* Bauhaus yellow */
+      --text:   #f0ede6;      /* warm off-white (Bauhaus paper) */
+      --sub:    #888;
+      --paper:  #f5f0e8;      /* canvas background stays warm */
+    }
+    body{background:var(--bg);color:var(--text);
+      font-family:'Noto Sans JP','Hiragino Sans',sans-serif;
+      overflow:hidden;height:100dvh;width:100vw;user-select:none;}
+
+    /* === CANVAS === */
+    #canvas-wrap{
+      position:fixed;top:44px;left:0;right:0;
+      bottom:calc(60px + env(safe-area-inset-bottom, 0px));
+      background:var(--paper);overflow:hidden;
+    }
+    #canvas{position:absolute;top:0;left:0;touch-action:none;cursor:crosshair;}
+
+    /* === TOP BAR === */
+    #topbar{
+      position:fixed;top:0;left:0;right:0;height:44px;
+      background:var(--bg);border-bottom:1px solid var(--border);
+      display:flex;align-items:center;padding:0 8px;gap:8px;z-index:100;
+    }
+    #topbar .app-title{font-size:13px;font-weight:900;color:var(--text);font-family:'Archivo','Noto Sans JP',sans-serif;letter-spacing:.05em;}
+    #zoom-info{font-size:11px;color:var(--sub);margin-left:auto;}
+    .icon-btn{
+      width:32px;height:32px;border-radius:8px;border:none;
+      background:var(--panel);color:var(--text);cursor:pointer;
+      display:flex;align-items:center;justify-content:center;font-size:16px;
+    }
+
+    /* === BOTTOM TOOLBAR === */
+    #toolbar{
+      position:fixed;bottom:0;left:0;right:0;
+      height:calc(60px + env(safe-area-inset-bottom, 0px));
+      padding-bottom:env(safe-area-inset-bottom, 0px);
+      background:var(--bg);border-top:1px solid var(--border);
+      display:flex;align-items:center;justify-content:space-around;z-index:400;
+    }
+    .tbtn{
+      display:flex;flex-direction:column;align-items:center;gap:2px;
+      padding:6px 10px;border-radius:8px;cursor:pointer;border:none;
+      background:transparent;color:var(--sub);font-size:9px;min-width:52px;
+    }
+    .tbtn.active{background:rgba(41,82,200,.25);color:var(--accent);}
+    .tbtn svg{width:22px;height:22px;}
+
+    /* === FLOATING BUTTONS === */
+    #undo-btn,#redo-btn{
+      position:fixed;right:8px;z-index:100;
+      width:34px;height:34px;border-radius:50%;
+      background:rgba(26,26,46,.9);border:1px solid var(--border);
+      color:var(--text);font-size:16px;cursor:pointer;
+      display:flex;align-items:center;justify-content:center;
+    }
+    #undo-btn{top:52px;}#redo-btn{top:92px;}
+    #area-overlay{
+      position:fixed;top:52px;left:8px;z-index:100;
+      background:rgba(26,26,46,.85);border-radius:8px;
+      padding:6px 10px;font-size:10px;color:var(--sub);
+      max-width:140px;border:1px solid var(--border);
+    }
+    #area-overlay .total{font-size:12px;font-weight:bold;color:var(--accent);}
+
+    /* === PANELS (slide up/right) === */
+    .panel{
+      position:fixed;background:var(--bg);z-index:200;
+      border:1px solid var(--border);
+    }
+    #room-panel{
+      bottom:calc(60px + env(safe-area-inset-bottom, 0px));left:0;right:0;max-height:55vh;overflow-y:auto;
+      border-radius:14px 14px 0 0;border-bottom:none;
+      padding:12px;transform:translateY(calc(100% + 80px));transition:transform .3s;
+      pointer-events:none;
+    }
+    #room-panel.open{transform:translateY(0);pointer-events:auto;}
+    #cond-panel:not(.open){pointer-events:none;}
+    #cond-panel{
+      top:44px;right:0;width:min(300px,100vw);
+      height:calc(100dvh - 104px - env(safe-area-inset-bottom, 0px));border-radius:0 0 0 12px;
+      padding:12px;overflow-y:auto;
+      transform:translateX(100%);transition:transform .3s;
+    }
+    #cond-panel.open{transform:translateX(0);}
+    .panel-handle{
+      width:36px;height:4px;background:var(--border);
+      border-radius:2px;margin:0 auto 10px;
+    }
+    .panel-title{font-size:12px;color:var(--sub);text-align:center;margin-bottom:10px;font-weight:bold;}
+
+    /* === ROOM PANEL === */
+    .room-grid{display:flex;flex-direction:column;gap:10px;}
+    .rtype-cat-label{
+      font-size:10px;font-weight:bold;color:var(--sub);letter-spacing:.08em;
+      text-transform:uppercase;padding:2px 0 0;border-top:1px solid var(--border);
+      margin-top:2px;
+    }
+    .rtype-cat-label:first-child{border-top:none;margin-top:0;}
+    .rtype-cat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;}
+    .rtype-btn{
+      padding:8px 4px;border-radius:8px;border:1px solid var(--border);
+      background:var(--panel);color:var(--text);font-size:11px;
+      cursor:pointer;text-align:center;transition:all .15s;
+    }
+    .rtype-btn.sel{border-color:var(--accent);background:rgba(41,82,200,.2);}
+    .rtype-dot{width:12px;height:12px;border-radius:3px;margin:0 auto 3px;}
+    #other-name-row{
+      display:none;padding:8px 2px 0;
+    }
+    #other-name-input{
+      width:100%;padding:8px 10px;border-radius:8px;
+      border:1px solid var(--accent);background:var(--bg);
+      color:var(--text);font-size:13px;
+    }
+
+    /* === CONDITIONS PANEL === */
+    .cform{display:flex;flex-direction:column;gap:10px;}
+    .fgroup{display:flex;flex-direction:column;gap:3px;}
+    .fgroup label{font-size:10px;color:var(--sub);}
+    .fgroup input,.fgroup select,.fgroup textarea{
+      background:var(--panel);border:1px solid var(--border);
+      border-radius:6px;color:var(--text);padding:7px 8px;
+      font-size:12px;width:100%;
+    }
+    .fgroup-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+
+    /* Lock */
+    #cond-lock-banner{
+      display:none;background:rgba(255,160,0,.12);border:1px solid rgba(255,160,0,.35);
+      border-radius:8px;padding:7px 10px;font-size:11px;color:#FFB74D;
+      text-align:center;margin-bottom:2px;
+    }
+    #cond-panel.locked #cond-lock-banner{display:block;}
+    #cond-panel.locked .cform input,
+    #cond-panel.locked .cform select,
+    #cond-panel.locked .cform textarea{opacity:.65;pointer-events:none;}
+    #cond-panel.locked .adj-type,
+    #cond-panel.locked .adj-width,
+    #cond-panel.locked .adj-opp-type,
+    #cond-panel.locked .adj-opp-width{opacity:.65;pointer-events:none;}
+    #cond-panel.locked #add-req-btn,
+    #cond-panel.locked #add-ext-btn,
+    #cond-panel.locked .req-del,
+    #cond-panel.locked .ext-del,
+    #cond-panel.locked #apply-site-btn{display:none;}
+
+    /* Mini site diagram */
+    #site-diagram-wrap{
+      background:rgba(0,0,0,.2);border:1px solid var(--border);border-radius:8px;overflow:hidden;
+    }
+    #site-diagram{display:flex;justify-content:center;padding:8px 8px 0;}
+    #site-diagram svg{width:min(160px,60vw);height:auto;}
+    .adj-table{padding:6px 8px 8px;display:flex;flex-direction:column;gap:4px;}
+    .adj-row{display:grid;grid-template-columns:36px 1fr 72px;gap:4px;align-items:center;}
+    .adj-dir{font-size:10px;color:var(--sub);font-weight:bold;}
+    .adj-row select,.adj-row input{padding:4px 6px;font-size:11px;}
+    .adj-opposite-row{display:none;grid-template-columns:36px 1fr 72px;gap:4px;align-items:center;}
+    .adj-opposite-row select,.adj-opposite-row input{padding:3px 5px;font-size:10px;background:var(--panel);}
+    .adj-opposite-row .adj-opp-label{font-size:9px;color:var(--sub);padding-left:2px;}
+
+    /* Requirements */
+    .req-list{display:flex;flex-direction:column;gap:8px;}
+    .req-item{
+      background:rgba(255,255,255,.03);border:1px solid var(--border);
+      border-radius:8px;padding:8px;display:flex;flex-direction:column;gap:5px;
+    }
+    .req-card-header{display:grid;grid-template-columns:1fr auto auto;gap:4px;align-items:center;}
+    .req-name-input{font-size:12px;font-weight:600;padding:4px 6px;width:100%;}
+    .req-card-area{display:grid;grid-template-columns:40px 1fr;gap:4px;align-items:center;}
+    .req-notes-section{display:flex;flex-direction:column;gap:3px;}
+    .req-field-label{font-size:9px;color:var(--sub);letter-spacing:.05em;padding-top:1px;}
+    .req-note-row{display:grid;grid-template-columns:auto 1fr auto;gap:3px;align-items:center;}
+    .req-note-bullet{font-size:11px;color:var(--sub);}
+    .req-note-input{font-size:11px;padding:3px 5px;}
+    .req-note-del{background:none;border:none;color:var(--sub);cursor:pointer;font-size:11px;padding:0 2px;line-height:1;}
+    .req-add-note{font-size:10px;color:var(--accent);background:none;border:none;cursor:pointer;text-align:left;padding:2px 0 0 14px;opacity:.8;}
+    .req-add-note:hover{opacity:1;}
+    .req-item input,.req-item select{padding:4px 5px;font-size:11px;}
+    .add-req-btn,.add-ext-btn{
+      padding:7px;background:var(--panel);border:1px dashed var(--border);
+      border-radius:6px;color:var(--sub);cursor:pointer;font-size:12px;
+      text-align:center;width:100%;margin-top:4px;
+    }
+    .req-del,.ext-del{background:none;border:none;color:var(--danger);cursor:pointer;font-size:14px;padding:0 2px;}
+    /* Checklist notes */
+    .cl-item{flex-direction:column;align-items:flex-start;}
+    .cl-item-main{display:flex;align-items:baseline;gap:5px;width:100%;}
+    .cl-notes{padding-left:18px;margin-top:2px;}
+    .cl-note{font-size:9px;color:var(--sub);line-height:1.6;}
+
+    /* Exterior conditions */
+    .ext-list{display:flex;flex-direction:column;gap:6px;}
+    .ext-item{
+      display:grid;grid-template-columns:90px 1fr auto;gap:4px;align-items:center;
+    }
+    .ext-item select,.ext-item input{padding:4px 5px;font-size:11px;}
+
+    /* === MODAL === */
+    #modal-overlay{
+      position:fixed;inset:0;background:rgba(0,0,0,.6);
+      z-index:400;display:none;align-items:center;justify-content:center;
+    }
+    #modal-overlay.open{display:flex;}
+    .modal{
+      background:var(--bg);border:1px solid var(--border);
+      border-radius:12px;padding:20px;width:min(280px,90vw);
+    }
+    .modal h3{font-size:14px;text-align:center;margin-bottom:14px;}
+    .modal-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;}
+    .modal-row.full{grid-template-columns:1fr;}
+    .modal label{font-size:10px;color:var(--sub);display:block;margin-bottom:2px;}
+    .modal input,.modal select{
+      width:100%;background:var(--panel);border:1px solid var(--border);
+      border-radius:6px;color:var(--text);padding:7px 8px;font-size:12px;
+    }
+    .modal-actions{display:flex;gap:8px;margin-top:14px;}
+    .btn{flex:1;padding:10px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:bold;}
+    .btn-p{background:var(--accent);color:#fff;}
+    .btn-d{background:var(--danger);color:#fff;}
+    .btn-s{background:var(--panel);color:var(--text);border:1px solid var(--border);}
+
+    /* === SNACKBAR === */
+    #snack{
+      position:fixed;bottom:68px;left:50%;transform:translateX(-50%);
+      background:rgba(0,0,0,.85);color:#fff;padding:7px 16px;
+      border-radius:20px;font-size:12px;z-index:500;
+      opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;
+    }
+    #snack.show{opacity:1;}
+
+    /* === DIMENSION TOOLTIP === */
+    #dimtip{
+      position:fixed;background:rgba(0,0,0,.75);color:#fff;
+      padding:3px 7px;border-radius:4px;font-size:10px;
+      pointer-events:none;z-index:300;display:none;
+    }
+
+    /* === OVERLAY BLOCKER === */
+    #overlay-blocker{
+      position:fixed;inset:0;z-index:150;display:none;
+    }
+    #overlay-blocker.show{display:block;}
+
+    /* === TEMPLATE PICKER === */
+    #tmpl-overlay{
+      position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.45);
+      display:none;
+    }
+    #tmpl-overlay.show{display:block;}
+    #template-popup{
+      position:fixed;left:50%;transform:translateX(-50%);
+      bottom:calc(60px + env(safe-area-inset-bottom,0px) + 8px);
+      z-index:610;background:var(--bg);
+      border:1px solid var(--border);border-radius:16px;
+      padding:14px 14px 10px;width:min(320px,92vw);
+      box-shadow:0 -4px 32px rgba(0,0,0,.5);
+      display:none;
+    }
+    #template-popup.show{display:block;}
+    #tmpl-title{margin:0 0 10px;font-size:13px;font-weight:bold;color:var(--accent);}
+    .tmpl-btn{
+      display:flex;align-items:center;justify-content:space-between;
+      width:100%;padding:9px 12px;margin-bottom:6px;
+      background:var(--panel);border:1px solid var(--border);border-radius:9px;
+      color:var(--text);font-size:12px;cursor:pointer;
+    }
+    .tmpl-btn span.tmpl-area{color:var(--sub);font-size:11px;}
+    .tmpl-cancel{
+      display:block;width:100%;padding:8px;margin-top:4px;
+      background:transparent;border:1px solid var(--border);border-radius:9px;
+      color:var(--sub);font-size:12px;cursor:pointer;
+    }
+
+    /* === DRAG / MOVE FEEDBACK === */
+    .room-dragging{outline:3px solid var(--accent);}
+
+    /* === CHECKLIST DRAWER === */
+    #checklist-tab{
+      position:fixed;right:0;top:50%;transform:translateY(-50%);
+      background:var(--panel);border:1px solid var(--border);border-right:none;
+      border-radius:10px 0 0 10px;padding:10px 6px;z-index:300;cursor:pointer;
+      display:flex;flex-direction:column;align-items:center;gap:4px;
+      color:var(--sub);font-size:9px;letter-spacing:.04em;
+      transition:background .15s;user-select:none;
+    }
+    #checklist-tab:active{opacity:.7;}
+    #checklist-tab-icon{font-size:16px;}
+    #checklist-badge{
+      min-width:16px;height:16px;border-radius:8px;
+      font-size:9px;font-weight:bold;line-height:16px;text-align:center;
+      padding:0 3px;display:none;
+    }
+    #checklist-tab.badge-warn    #checklist-badge{display:block;background:var(--danger);color:#fff;}
+    #checklist-tab.badge-ok      #checklist-badge{display:block;background:#2d8a4e;color:#fff;}
+    #checklist-tab.badge-neutral #checklist-badge{display:block;background:var(--sub);color:#fff;}
+    /* 補助有りモードボタン */
+    #assist-btn{
+      font-size:9px;font-weight:bold;letter-spacing:.04em;
+      width:auto;min-width:36px;padding:0 6px;
+      border:1.5px solid var(--border);color:var(--sub);
+    }
+    #assist-btn.active{
+      background:rgba(41,82,200,.2);border-color:var(--accent);color:var(--accent);
+    }
+    #checklist-drawer{
+      position:fixed;top:44px;right:0;
+      width:min(230px,72vw);
+      height:calc(100dvh - 44px - 60px - env(safe-area-inset-bottom,0px));
+      background:rgba(26,26,46,.92);
+      backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+      border-left:1px solid var(--border);
+      z-index:280;overflow-y:auto;padding:12px 10px;
+      transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);
+    }
+    #checklist-drawer.open{transform:translateX(0);}
+    .cl-section{margin-bottom:12px;}
+    .cl-section-label{
+      font-size:9px;font-weight:bold;color:var(--sub);letter-spacing:.1em;
+      text-transform:uppercase;border-bottom:1px solid var(--border);
+      padding-bottom:3px;margin-bottom:5px;
+    }
+    .cl-item{
+      display:flex;align-items:baseline;gap:5px;
+      font-size:11px;padding:3px 0;line-height:1.4;
+    }
+    .cl-item.placed .cl-name{color:#81C784;text-decoration:line-through;opacity:.7;}
+    .cl-item.missing .cl-name{color:var(--text);}
+    .cl-icon{flex-shrink:0;font-size:11px;}
+    .cl-name{flex:1;}
+    .cl-area{font-size:9px;color:var(--sub);flex-shrink:0;text-align:right;}
+    .cl-total{
+      margin-top:10px;padding-top:8px;border-top:1px solid var(--border);
+      font-size:11px;color:var(--sub);text-align:center;
+    }
+    .cl-total strong{color:var(--accent);font-size:13px;}
+
+    /* === TRASH DROP === */
+    #t-erase{transition:transform .2s, color .2s;}
+    #t-erase.trash-hot{transform:scale(1.55);color:var(--danger);}
+
+    /* === SAVE/LOAD PANEL === */
+    #save-panel{
+      bottom:calc(60px + env(safe-area-inset-bottom, 0px));left:0;right:0;
+      max-height:75vh;overflow-y:auto;
+      border-radius:14px 14px 0 0;border-bottom:none;
+      padding:14px;transform:translateY(calc(100% + 80px));transition:transform .3s;
+      pointer-events:none;
+    }
+    #save-panel.open{transform:translateY(0);pointer-events:auto;}
+    .save-item{
+      display:flex;align-items:center;justify-content:space-between;gap:8px;
+      padding:10px 0;border-bottom:1px solid var(--border);
+    }
+    .save-item:last-child{border-bottom:none;}
+    .save-item-info{flex:1;min-width:0;}
+    .save-item-title{
+      font-size:13px;color:var(--text);font-weight:bold;
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    }
+    .save-item-meta{font-size:10px;color:var(--sub);margin-top:2px;}
+    .save-item-actions{display:flex;gap:5px;flex-shrink:0;}
+
+    /* === SYSTEM CHECK === */
+    .chk-section{margin-bottom:16px;}
+    .chk-section-title{
+      font-size:10px;font-weight:bold;color:var(--sub);letter-spacing:.1em;
+      text-transform:uppercase;border-bottom:1px solid var(--border);
+      padding-bottom:4px;margin-bottom:8px;
+    }
+    .chk-item{display:flex;align-items:baseline;gap:6px;padding:3px 0;font-size:12px;}
+    .chk-item .chk-icon{flex-shrink:0;font-size:13px;}
+    .chk-item .chk-name{flex:1;color:var(--text);}
+    .chk-item .chk-detail{font-size:10px;color:var(--sub);}
+    .chk-item.ok   .chk-name{color:#81C784;}
+    .chk-item.ng   .chk-name{color:#EF9A9A;}
+    .chk-item.warn .chk-name{color:#FFD54F;}
+    .chk-verdict{
+      margin-top:16px;padding:12px;border-radius:10px;text-align:center;
+      font-size:14px;font-weight:bold;
+    }
+    .chk-verdict.pass{background:rgba(76,175,80,.2);color:#81C784;border:1px solid rgba(76,175,80,.4);}
+    .chk-verdict.fail{background:rgba(229,115,115,.15);color:#EF9A9A;border:1px solid rgba(229,115,115,.4);}
+    .chk-verdict.warn{background:rgba(255,213,79,.12);color:#FFD54F;border:1px solid rgba(255,213,79,.4);}
+
+    /* === ROTATE BUTTON === */
+    #rotate-btn{
+      position:fixed;display:none;align-items:center;gap:4px;
+      background:var(--accent);color:#fff;border:none;border-radius:20px;
+      padding:6px 14px;font-size:13px;font-weight:bold;
+      z-index:300;cursor:pointer;white-space:nowrap;
+      transform:translateX(-50%);
+      box-shadow:0 2px 8px rgba(0,0,0,.4);
+    }
+  </style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div id="topbar">
+  <a href="index.html" class="icon-btn" title="課題一覧へ戻る" style="text-decoration:none;font-size:14px;">⌂</a>
+  <span class="app-title">エスキスアプリ</span>
+  <button class="icon-btn" id="cond-btn" title="課題条件">📋</button>
+  <button class="icon-btn" id="guide-btn" title="ガイドライン追加">📐</button>
+  <button class="icon-btn" id="store-btn" title="保存 / ロード">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+      <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/>
+      <polyline points="17 21 17 13 7 13 7 21"/>
+      <polyline points="7 3 7 8 15 8"/>
+    </svg>
+  </button>
+  <button class="icon-btn" id="clear-btn" title="全消去">🗑️</button>
+  <button class="icon-btn" id="assist-btn" title="補助有りモード ON/OFF" onclick="toggleAssistMode()">補助</button>
+  <span id="zoom-info">100%</span>
+</div>
+
+<!-- CANVAS -->
+<div id="canvas-wrap">
+  <canvas id="canvas"></canvas>
+</div>
+
+<!-- FLOATING -->
+<div id="area-overlay">
+  <div class="total" id="area-total">0 m²</div>
+  <div id="area-list"></div>
+</div>
+<button id="undo-btn" title="元に戻す">↩</button>
+<button id="redo-btn" title="やり直し">↪</button>
+
+<!-- BOTTOM TOOLBAR -->
+<div id="toolbar">
+  <button class="tbtn" id="t-wall" data-tool="wall">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <line x1="4" y1="20" x2="20" y2="4"/>
+    </svg>壁・線
+  </button>
+  <button class="tbtn" id="t-room" data-tool="room">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <rect x="3" y="3" width="18" height="18" rx="1"/>
+      <line x1="3" y1="12" x2="21" y2="12"/>
+      <line x1="12" y1="3" x2="12" y2="21"/>
+    </svg>部屋
+  </button>
+  <button class="tbtn" id="t-erase" data-tool="erase">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polyline points="3 6 5 6 21 6"/>
+      <path d="M19 6l-1 14H6L5 6"/>
+      <path d="M10 11v6M14 11v6"/>
+      <path d="M9 6V4h6v2"/>
+    </svg>削除
+  </button>
+  <button class="tbtn" id="t-select" data-tool="select">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5"/>
+      <path d="M15.5 3.5a2.121 2.121 0 013 3L12 13l-4 1 1-4 6.5-6.5z"/>
+    </svg>編集
+  </button>
+  <button class="tbtn active" id="t-pan" data-tool="pan">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M12 2v5m0 10v5M2 12h5m10 0h5"/>
+      <circle cx="12" cy="12" r="3"/>
+    </svg>移動
+  </button>
+</div>
+
+<!-- ROOM TYPE PANEL -->
+<div id="room-panel" class="panel">
+  <div class="panel-handle"></div>
+  <div class="panel-title">部屋タイプを選択</div>
+  <div class="room-grid" id="room-type-grid"></div>
+  <div id="other-name-row">
+    <input type="text" id="other-name-input" placeholder="部屋名を入力（例: サンルーム）" maxlength="20">
+  </div>
+</div>
+
+<!-- CONDITIONS PANEL -->
+<div id="cond-panel" class="panel">
+  <div class="panel-title">📋 課題条件</div>
+  <div id="cond-lock-banner">🔒 課題選択中 — 条件は変更できません</div>
+  <div class="cform" id="cond-form">
+    <div class="fgroup">
+      <label>課題タイトル</label>
+      <input type="text" id="c-title" placeholder="例: 二級建築士 令和X年度">
+    </div>
+    <div class="fgroup">
+      <label>構造</label>
+      <select id="c-struct">
+        <option value="木造2階建">木造2階建</option>
+        <option value="RC造">RC造</option>
+        <option value="その他">その他</option>
+      </select>
+    </div>
+    <div class="fgroup">
+      <label>用途地域</label>
+      <select id="c-zoning">
+        <option value="第一種低層住居専用地域" data-slope="1.25">第一種低層住居専用地域</option>
+        <option value="第二種低層住居専用地域" data-slope="1.25">第二種低層住居専用地域</option>
+        <option value="第一種中高層住居専用地域" data-slope="1.25">第一種中高層住居専用地域</option>
+        <option value="第二種中高層住居専用地域" data-slope="1.25">第二種中高層住居専用地域</option>
+        <option value="第一種住居地域" data-slope="1.25">第一種住居地域</option>
+        <option value="第二種住居地域" data-slope="1.25">第二種住居地域</option>
+        <option value="準住居地域" data-slope="1.25">準住居地域</option>
+        <option value="近隣商業地域" data-slope="1.5">近隣商業地域</option>
+        <option value="商業地域" data-slope="1.5">商業地域</option>
+        <option value="準工業地域" data-slope="1.5">準工業地域</option>
+      </select>
+    </div>
+    <input type="hidden" id="c-site-w" value="10920">
+    <input type="hidden" id="c-site-d" value="13650">
+    <div class="fgroup">
+      <label>敷地形状</label>
+      <select id="c-site-shape" onchange="onSiteShapeChange()">
+        <option value="rect">矩形（標準）</option>
+        <option value="corner">隅切り</option>
+        <option value="trapezoid">台形</option>
+      </select>
+    </div>
+    <div id="shape-corner-opts" style="display:none">
+      <div class="fgroup">
+        <label>隅切りサイズ (mm)</label>
+        <input type="number" id="c-corner-size" value="1820" step="455" min="455">
+      </div>
+      <div class="fgroup">
+        <label>隅切りする角</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:4px;">
+          <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text);"><input type="checkbox" id="c-cut-NW"> 北西(NW)</label>
+          <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text);"><input type="checkbox" id="c-cut-NE"> 北東(NE)</label>
+          <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text);"><input type="checkbox" id="c-cut-SW"> 南西(SW)</label>
+          <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text);"><input type="checkbox" id="c-cut-SE"> 南東(SE)</label>
+        </div>
+      </div>
+    </div>
+    <div id="shape-trap-opts" style="display:none">
+      <div class="fgroup-row">
+        <div class="fgroup">
+          <label>短い辺</label>
+          <select id="c-short-side">
+            <option value="E">東側(E)</option>
+            <option value="W">西側(W)</option>
+          </select>
+        </div>
+        <div class="fgroup">
+          <label>短い辺の高さ(mm)</label>
+          <input type="number" id="c-short-h" step="455" placeholder="例: 10920">
+        </div>
+      </div>
+    </div>
+    <div class="fgroup-row">
+      <div class="fgroup">
+        <label>建蔽率 (%)</label>
+        <input type="number" id="c-coverage" placeholder="60" step="1">
+      </div>
+      <div class="fgroup">
+        <label>容積率 (%)</label>
+        <input type="number" id="c-far" placeholder="200" step="1">
+      </div>
+    </div>
+    <div class="fgroup">
+      <label>延床面積の目標 (m²)</label>
+      <input type="number" id="c-floor-area" placeholder="例: 120" step="1">
+    </div>
+    <div class="fgroup">
+      <label>敷地周辺図</label>
+      <div id="site-diagram-wrap">
+        <div id="site-diagram"></div>
+        <div class="adj-table" id="adj-table">
+          <div class="adj-row">
+            <span class="adj-dir">北(N)</span>
+            <select class="adj-type" data-dir="N" onchange="onAdjTypeChange('N')">
+              <option>宅地</option><option>道路</option><option>公園</option><option>緑地</option>
+              <option>水路</option><option>河川</option><option>空地</option><option>広場</option><option>里道</option><option>線路敷</option>
+            </select>
+            <input type="number" class="adj-width" data-dir="N" placeholder="幅員(m)" step="0.5" onchange="drawSiteDiagram()">
+          </div>
+          <div class="adj-opposite-row" id="adj-opp-N">
+            <span class="adj-opp-label">└対面</span>
+            <select class="adj-opp-type" data-dir="N" onchange="drawSiteDiagram()">
+              <option value="">なし</option><option value="公園">公園</option><option value="広場">広場</option>
+              <option value="水面">水面</option><option value="河川">河川</option>
+            </select>
+            <input type="number" class="adj-opp-width" data-dir="N" placeholder="幅(m)" step="0.5" onchange="drawSiteDiagram()">
+          </div>
+          <div class="adj-row">
+            <span class="adj-dir">南(S)</span>
+            <select class="adj-type" data-dir="S" onchange="onAdjTypeChange('S')">
+              <option>宅地</option><option>道路</option><option>公園</option><option>緑地</option>
+              <option>水路</option><option>河川</option><option>空地</option><option>広場</option><option>里道</option><option>線路敷</option>
+            </select>
+            <input type="number" class="adj-width" data-dir="S" placeholder="幅員(m)" step="0.5" onchange="drawSiteDiagram()">
+          </div>
+          <div class="adj-opposite-row" id="adj-opp-S">
+            <span class="adj-opp-label">└対面</span>
+            <select class="adj-opp-type" data-dir="S" onchange="drawSiteDiagram()">
+              <option value="">なし</option><option value="公園">公園</option><option value="広場">広場</option>
+              <option value="水面">水面</option><option value="河川">河川</option>
+            </select>
+            <input type="number" class="adj-opp-width" data-dir="S" placeholder="幅(m)" step="0.5" onchange="drawSiteDiagram()">
+          </div>
+          <div class="adj-row">
+            <span class="adj-dir">東(E)</span>
+            <select class="adj-type" data-dir="E" onchange="onAdjTypeChange('E')">
+              <option>宅地</option><option>道路</option><option>公園</option><option>緑地</option>
+              <option>水路</option><option>河川</option><option>空地</option><option>広場</option><option>里道</option><option>線路敷</option>
+            </select>
+            <input type="number" class="adj-width" data-dir="E" placeholder="幅員(m)" step="0.5" onchange="drawSiteDiagram()">
+          </div>
+          <div class="adj-opposite-row" id="adj-opp-E">
+            <span class="adj-opp-label">└対面</span>
+            <select class="adj-opp-type" data-dir="E" onchange="drawSiteDiagram()">
+              <option value="">なし</option><option value="公園">公園</option><option value="広場">広場</option>
+              <option value="水面">水面</option><option value="河川">河川</option>
+            </select>
+            <input type="number" class="adj-opp-width" data-dir="E" placeholder="幅(m)" step="0.5" onchange="drawSiteDiagram()">
+          </div>
+          <div class="adj-row">
+            <span class="adj-dir">西(W)</span>
+            <select class="adj-type" data-dir="W" onchange="onAdjTypeChange('W')">
+              <option>宅地</option><option>道路</option><option>公園</option><option>緑地</option>
+              <option>水路</option><option>河川</option><option>空地</option><option>広場</option><option>里道</option><option>線路敷</option>
+            </select>
+            <input type="number" class="adj-width" data-dir="W" placeholder="幅員(m)" step="0.5" onchange="drawSiteDiagram()">
+          </div>
+          <div class="adj-opposite-row" id="adj-opp-W">
+            <span class="adj-opp-label">└対面</span>
+            <select class="adj-opp-type" data-dir="W" onchange="drawSiteDiagram()">
+              <option value="">なし</option><option value="公園">公園</option><option value="広場">広場</option>
+              <option value="水面">水面</option><option value="河川">河川</option>
+            </select>
+            <input type="number" class="adj-opp-width" data-dir="W" placeholder="幅(m)" step="0.5" onchange="drawSiteDiagram()">
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="fgroup">
+      <label>要求室一覧</label>
+      <div class="req-list" id="req-list"></div>
+      <button class="add-req-btn" id="add-req-btn">＋ 要求室を追加</button>
+    </div>
+    <div class="fgroup">
+      <label>外構条件</label>
+      <div class="ext-list" id="ext-list"></div>
+      <button class="add-ext-btn" id="add-ext-btn">＋ 外構条件を追加</button>
+    </div>
+    <div class="fgroup">
+      <label>その他の条件</label>
+      <textarea id="c-notes" rows="3" placeholder="完全分離型：玄関・水回りを各世帯に設置..."></textarea>
+    </div>
+    <button class="btn btn-p" id="apply-site-btn" style="margin-top:4px;">敷地を反映</button>
+  </div>
+</div>
+
+<!-- OVERLAY BLOCKER (to close panels on outside tap) -->
+<div id="overlay-blocker"></div>
+
+<!-- MODAL (room edit) -->
+<div id="modal-overlay">
+  <div class="modal">
+    <h3 id="modal-title">部屋を編集</h3>
+    <div class="modal-row">
+      <div>
+        <label>部屋名</label>
+        <input type="text" id="m-name">
+      </div>
+      <div>
+        <label>タイプ</label>
+        <select id="m-type"></select>
+      </div>
+    </div>
+    <div class="modal-row">
+      <div>
+        <label>幅 (mm)</label>
+        <input type="number" id="m-w" step="455">
+      </div>
+      <div>
+        <label>奥行 (mm)</label>
+        <input type="number" id="m-h" step="455">
+      </div>
+    </div>
+    <div class="modal-row full">
+      <label>メモ</label>
+      <input type="text" id="m-note" placeholder="必要面積など">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-s" id="m-cancel">キャンセル</button>
+      <button class="btn btn-d" id="m-delete">削除</button>
+      <button class="btn btn-p" id="m-ok">確定</button>
+    </div>
+  </div>
+</div>
+
+<!-- ROTATE BUTTON (選択時表示) -->
+<button id="rotate-btn">↻ 回転</button>
+
+<!-- DIMENSION TOOLTIP -->
+<div id="dimtip"></div>
+
+<!-- CHECKLIST DRAWER -->
+<div id="checklist-tab" onclick="toggleChecklist()" title="要求室チェック">
+  <span id="checklist-tab-icon">📋</span>
+  <span id="checklist-badge"></span>
+  <span>要求室</span>
+</div>
+<div id="checklist-drawer">
+  <div class="panel-title">📋 要求室チェック</div>
+  <div id="checklist-body"><p style="font-size:11px;color:var(--sub);text-align:center;padding:20px 0">課題を選択すると<br>チェックリストが表示されます</p></div>
+  <div id="sys-check-btn-wrap" style="display:none;padding:12px 0 0;">
+    <button id="sys-check-btn" class="btn btn-p" style="width:100%;font-size:12px;">🔍 システムチェックを実行</button>
+  </div>
+</div>
+
+<!-- SYSTEM CHECK RESULT MODAL -->
+<div id="check-modal-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:500;display:none;align-items:flex-end;justify-content:center;padding-bottom:env(safe-area-inset-bottom,0px);">
+  <div id="check-modal" style="background:var(--bg);border:1px solid var(--border);border-radius:16px 16px 0 0;width:100%;max-height:85vh;overflow-y:auto;padding:20px 16px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div style="font-size:15px;font-weight:bold;color:#fff;">🔍 システムチェック結果</div>
+      <button onclick="document.getElementById('check-modal-overlay').style.display='none';" style="background:none;border:none;color:var(--sub);font-size:20px;cursor:pointer;padding:0 4px;">✕</button>
+    </div>
+    <div id="check-modal-body"></div>
+  </div>
+</div>
+
+<!-- SAVE/LOAD PANEL -->
+<div id="save-panel" class="panel">
+  <div class="panel-handle"></div>
+  <div class="panel-title">💾 保存 / ロード</div>
+  <div class="fgroup" style="margin-bottom:8px;">
+    <label>名前をつけて保存</label>
+    <input type="text" id="save-title-input" placeholder="例: 2F住宅 練習1" maxlength="30">
+  </div>
+  <div style="display:flex;gap:8px;margin-bottom:16px;">
+    <button class="btn btn-p" id="do-save-btn" style="flex:1;">💾 保存する</button>
+    <button class="btn btn-s" id="do-img-btn" style="flex:1;">🖼 画像で書き出す</button>
+  </div>
+  <div style="border-top:1px solid var(--border);padding-top:12px;">
+    <div style="font-size:10px;font-weight:bold;color:var(--sub);letter-spacing:.1em;margin-bottom:8px;">保存済みエスキス</div>
+    <div id="save-list"></div>
+  </div>
+</div>
+
+<!-- SNACKBAR -->
+<div id="snack"></div>
+
+<!-- TEMPLATE PICKER -->
+<div id="tmpl-overlay"></div>
+<div id="template-popup">
+  <p id="tmpl-title"></p>
+  <div id="tmpl-list"></div>
+  <button class="tmpl-cancel" id="tmpl-cancel-btn">キャンセル</button>
+</div>
+
+<script>
+// ======================================================
+// CONSTANTS & CONFIG
+// ======================================================
+const GRID = 455; // mm per grid unit
+
+/** XSS対策: ユーザー入力をHTMLに挿入する前にエスケープ */
+function escHtml(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+const DOUBLE_TAP_MS      = 400;   // ms: ダブルタップ判定時間
+const LONG_PRESS_MS      = 450;   // ms: 長押し判定時間
+const DRAG_THRESHOLD_PX  = 8;     // px: ドラッグと判定する最小移動量
+const TATAMI_M2          = 1.65;  // m²: 1畳の面積
+const TSUBO_M2           = 3.306; // m²: 1坪の面積
+
+const WALL_COLOR = '#2c2c2c';
+const WALL_WIDTH_MM = 120; // 120mm wall thickness (display only)
+const SITE_COLOR = '#2196F3';
+const SELECTED_COLOR = '#FF8C00';
+const ADJ_BAND = 3000;  // mm: width of adjacency strip drawn around site
+const FLOOR2_GAP = 2730; // mm: gap between east adj band and 2F site (6 grids)
+const ADJ_FILL = {
+  '道路':  'rgba(230,170,55,.55)',
+  '宅地':  'rgba(140,140,140,.3)',
+  '公園':  'rgba(70,170,70,.4)',
+  '緑地':  'rgba(90,190,90,.38)',
+  '水路':  'rgba(75,150,220,.48)',
+  '河川':  'rgba(45,120,195,.48)',
+  '空地':  'rgba(210,210,145,.42)',
+  '広場':  'rgba(145,210,210,.42)',
+  '里道':  'rgba(170,150,130,.42)',
+  '線路敷':'rgba(110,110,110,.42)',
+};
+
+// テンプレートサイズは455mmグリッドの倍数
+const ROOM_TYPES = [
+  // ── 居室 ──────────────────────────────
+  {key:'LDK',    label:'LDK',    color:'#FF8C8C', cat:'居室', templates:[
+    {label:'LDK 2×3間 (19.9㎡)',    w:3640, h:5460},
+    {label:'LDK 2.5×3間 (24.8㎡)',  w:4550, h:5460},
+    {label:'LDK 2×2.5間 (16.6㎡)',  w:3640, h:4550},
+    {label:'LDK 2.5×2.5間 (20.7㎡)',w:4550, h:4550},
+    {label:'LDK 3×3間 (29.8㎡)',    w:5460, h:5460},
+  ]},
+  {key:'DK',     label:'DK',     color:'#FFAA77', cat:'居室', templates:[
+    {label:'DK 1.5×2間 (9.9㎡)',    w:2730, h:3640},
+    {label:'DK 2×2間 (13.2㎡)',     w:3640, h:3640},
+    {label:'DK 2×2.5間 (16.6㎡)',   w:3640, h:4550},
+    {label:'DK 1.5×2.5間 (12.4㎡)', w:2730, h:4550},
+  ]},
+  {key:'居間',   label:'居間\nL', color:'#FFB3B3', cat:'居室', templates:[
+    {label:'8畳 2×2.5間 (16.6㎡)',   w:3640, h:4550},
+    {label:'10畳 2.5×2.5間 (20.7㎡)',w:4550, h:4550},
+    {label:'6畳 1.5×2間 (9.9㎡)',    w:2730, h:3640},
+    {label:'12畳 2.5×3間 (24.8㎡)',  w:4550, h:5460},
+  ]},
+  {key:'食堂',   label:'食堂\nD', color:'#FFD0A0', cat:'居室', templates:[
+    {label:'6畳 1.5×2間 (9.9㎡)',    w:2730, h:3640},
+    {label:'8畳 2×2.5間 (16.6㎡)',   w:3640, h:4550},
+    {label:'4.5畳 1×1.5間 (5.0㎡)',  w:1820, h:2730},
+    {label:'2×2間 (13.2㎡)',         w:3640, h:3640},
+  ]},
+  {key:'主寝室', label:'主寝室', color:'#B3D9FF', cat:'居室', templates:[
+    {label:'8畳 2×2.5間 (16.6㎡)',   w:3640, h:4550},
+    {label:'10畳 2.5×2.5間 (20.7㎡)',w:4550, h:4550},
+    {label:'6畳 1.5×2間 (9.9㎡)',    w:2730, h:3640},
+    {label:'12畳 2.5×3間 (24.8㎡)',  w:4550, h:5460},
+  ]},
+  {key:'子ども室', label:'子ども室', color:'#D0B3FF', cat:'居室', templates:[
+    {label:'6畳 1.5×2間 (9.9㎡)',    w:2730, h:3640},
+    {label:'4.5畳 1×1.5間 (5.0㎡)',  w:1820, h:2730},
+    {label:'8畳 2×2.5間 (16.6㎡)',   w:3640, h:4550},
+    {label:'2×2間 (13.2㎡)',         w:3640, h:3640},
+  ]},
+  {key:'和室',   label:'和室',   color:'#C8E6C9', cat:'居室', templates:[
+    {label:'6畳 1.5×2間 (9.9㎡)',    w:2730, h:3640},
+    {label:'8畳 2×2.5間 (16.6㎡)',   w:3640, h:4550},
+    {label:'4.5畳 1×1.5間 (5.0㎡)',  w:1820, h:2730},
+    {label:'10畳 2.5×2.5間 (20.7㎡)',w:4550, h:4550},
+  ]},
+  {key:'吹き抜け', label:'吹き抜け', color:'#E3F2FD', cat:'その他', templates:[
+    {label:'1×2間 (3.3㎡)',          w:1820, h:3640},
+    {label:'1.5×1.5間 (7.4㎡)',      w:2730, h:2730},
+    {label:'2×2間 (13.2㎡)',         w:3640, h:3640},
+    {label:'2×3間 (19.9㎡)',         w:3640, h:5460},
+  ]},
+  // ── 水回り ────────────────────────────
+  {key:'台所',   label:'台所\nK', color:'#FFEEAA', cat:'水回り', templates:[
+    {label:'I型 1×2間 (6.6㎡)',      w:1820, h:3640},
+    {label:'I型 1×2.5間 (8.3㎡)',    w:1820, h:4550},
+    {label:'ロ型 1.5×1.5間 (7.4㎡)', w:2730, h:2730},
+    {label:'L型 1.5×2間 (9.9㎡)',    w:2730, h:3640},
+  ]},
+  {key:'浴室',   label:'浴室\nバス', color:'#AAEEFF', cat:'水回り', templates:[
+    {label:'1坪 1616 (3.3㎡)',        w:1820, h:1820},
+    {label:'1618 脱衣込み (5.0㎡)',   w:1820, h:2730},
+    {label:'車椅子対応 (7.4㎡)',      w:2730, h:2730},
+    {label:'1418 コンパクト (2.6㎡)', w:1365, h:1820},
+  ]},
+  {key:'便所',   label:'トイレ', color:'#E0E0E0', cat:'水回り', templates:[
+    {label:'標準 910×1820 (1.7㎡)',          w:910,  h:1820},
+    {label:'車椅子対応 1820×1820 (3.3㎡)',   w:1820, h:1820},
+    {label:'ゆとり 1365×1820 (2.5㎡)',       w:1365, h:1820},
+    {label:'コンパクト 910×1365 (1.2㎡)',    w:910,  h:1365},
+  ]},
+  {key:'洗面',   label:'洗面室', color:'#E8F4FD', cat:'水回り', templates:[
+    {label:'1坪 1820×1820 (3.3㎡)',          w:1820, h:1820},
+    {label:'広め 1820×2730 (5.0㎡)',         w:1820, h:2730},
+    {label:'洗面+洗濯 2730×1820 (5.0㎡)',    w:2730, h:1820},
+  ]},
+  // ── 動線 ──────────────────────────────
+  {key:'玄関',   label:'玄関',   color:'#FFE0B2', cat:'動線', templates:[
+    {label:'標準 1820×1820 (3.3㎡)',          w:1820, h:1820},
+    {label:'広め 2730×1820 (5.0㎡)',          w:2730, h:1820},
+    {label:'ゆったり 2730×2730 (7.4㎡)',      w:2730, h:2730},
+    {label:'土間付き 3640×1820 (6.6㎡)',      w:3640, h:1820},
+  ]},
+  {key:'廊下',   label:'廊下',   color:'#F5F5F5', cat:'動線', templates:[
+    {label:'910×2730 (2.5㎡)',   w:910,  h:2730},
+    {label:'910×3640 (3.3㎡)',   w:910,  h:3640},
+    {label:'910×4550 (4.1㎡)',   w:910,  h:4550},
+    {label:'910×5460 (5.0㎡)',   w:910,  h:5460},
+  ]},
+  {key:'階段',   label:'階段',   color:'#EEEEEE', cat:'動線', templates:[
+    {label:'直線 910×2730 (2.5㎡)',   w:910,  h:2730},
+    {label:'折返し 1820×1820 (3.3㎡)',w:1820, h:1820},
+    {label:'折返し 1820×2730 (5.0㎡)',w:1820, h:2730},
+  ]},
+  // ── 収納 ──────────────────────────────
+  {key:'押入れ', label:'押入れ', color:'#E8EAF6', cat:'収納', templates:[
+    {label:'半間 910×910 (0.8㎡)',     w:910,  h:910},
+    {label:'1間 910×1820 (1.7㎡)',    w:910,  h:1820},
+    {label:'1間 1820×910 (1.7㎡)',    w:1820, h:910},
+    {label:'1.5間 1365×910 (1.2㎡)',  w:1365, h:910},
+    {label:'2間 910×3640 (3.3㎡)',    w:910,  h:3640},
+  ]},
+  {key:'WIC',    label:'ウォーク\nインCL', color:'#CFD8DC', cat:'収納', templates:[
+    {label:'1坪 1820×1820 (3.3㎡)',          w:1820, h:1820},
+    {label:'2坪 1820×3640 (6.6㎡)',          w:1820, h:3640},
+    {label:'広め 2730×2730 (7.4㎡)',         w:2730, h:2730},
+    {label:'ウォークスルー 1820×3640 (6.6㎡)',w:1820, h:3640},
+  ]},
+  {key:'納戸',   label:'納戸',  color:'#B0BEC5', cat:'収納', templates:[
+    {label:'1坪 1820×1820 (3.3㎡)',  w:1820, h:1820},
+    {label:'1.5坪 1820×2730 (5.0㎡)',w:1820, h:2730},
+    {label:'2坪 1820×3640 (6.6㎡)',  w:1820, h:3640},
+  ]},
+  // ── 外構 ──────────────────────────────
+  {key:'駐車場', label:'駐車場', color:'#B0BEC5', cat:'外構', templates:[
+    {label:'普通車1台 2730×5460 (14.9㎡)',  w:2730, h:5460},
+    {label:'小型車1台 2275×4550 (10.4㎡)',  w:2275, h:4550},
+    {label:'2台並列 5460×5460 (29.8㎡)',    w:5460, h:5460},
+    {label:'2台縦列 2730×10920 (29.8㎡)',   w:2730, h:10920},
+    {label:'軽自動車 2275×3640 (8.3㎡)',    w:2275, h:3640},
+  ]},
+  {key:'スロープ', label:'スロープ', color:'#D7CCC8', cat:'外構', templates:[
+    {label:'標準 1820×3640 (6.6㎡)',          w:1820, h:3640},
+    {label:'広め 2730×3640 (9.9㎡)',          w:2730, h:3640},
+    {label:'車椅子対応 1820×5460 (9.9㎡)',    w:1820, h:5460},
+    {label:'コンパクト 910×2730 (2.5㎡)',     w:910,  h:2730},
+  ]},
+  {key:'駐輪場', label:'駐輪場', color:'#CFE8CF', cat:'外構', templates:[
+    {label:'1台 910×1820 (1.7㎡)',    w:910,  h:1820},
+    {label:'2台 1820×1820 (3.3㎡)',   w:1820, h:1820},
+    {label:'4台 1820×3640 (6.6㎡)',   w:1820, h:3640},
+    {label:'6台 2730×3640 (9.9㎡)',   w:2730, h:3640},
+    {label:'8台 2730×5460 (14.9㎡)',  w:2730, h:5460},
+  ]},
+  {key:'植栽帯', label:'植栽帯', color:'#81C784', cat:'外構', templates:[
+    {label:'910×1820 (1.7㎡)',   w:910,  h:1820},
+    {label:'910×3640 (3.3㎡)',   w:910,  h:3640},
+    {label:'910×5460 (5.0㎡)',   w:910,  h:5460},
+    {label:'1820×1820 (3.3㎡)',  w:1820, h:1820},
+    {label:'1820×3640 (6.6㎡)',  w:1820, h:3640},
+  ]},
+  {key:'庭',     label:'庭',     color:'#A5D6A7', cat:'外構', templates:[
+    {label:'小庭 2730×2730 (7.4㎡)',   w:2730, h:2730},
+    {label:'中庭 3640×3640 (13.2㎡)',  w:3640, h:3640},
+    {label:'大庭 3640×5460 (19.9㎡)',  w:3640, h:5460},
+    {label:'前庭 5460×2730 (14.9㎡)',  w:5460, h:2730},
+  ]},
+  {key:'車庫',   label:'車庫\nガレージ', color:'#90A4AE', cat:'その他', templates:[
+    {label:'1台 2730×5460 (14.9㎡)',          w:2730, h:5460},
+    {label:'1台 コンパクト 2730×4550 (12.4㎡)',w:2730, h:4550},
+    {label:'2台 5460×5460 (29.8㎡)',          w:5460, h:5460},
+  ]},
+  {key:'テラス', label:'テラス\nデッキ', color:'#DCEDC8', cat:'外構', templates:[
+    {label:'標準 1820×3640 (6.6㎡)',   w:1820, h:3640},
+    {label:'広め 2730×3640 (9.9㎡)',   w:2730, h:3640},
+    {label:'小 1820×1820 (3.3㎡)',     w:1820, h:1820},
+  ]},
+  // ── その他 ────────────────────────────
+  {key:'その他', label:'その他', color:'#FFFFFF', cat:'その他', templates:[]},
+];
+
+// ======================================================
+// STATE
+// ======================================================
+let state = {
+  walls: [],   // {id, x1,y1,x2,y2}  in mm
+  rooms: [],   // {id, x,y,w,h, name,type,note}  in mm
+  site: {x:0, y:0, w:10920, h:13650,   // mm
+    cornerCuts:{NE:0,NW:0,SE:0,SW:0}, trapShortH:0, trapShortSide:'E'},
+  view: {ox:40, oy:60, scale:0.055},   // px = mm*scale + offset
+  tool: 'pan',
+  drawing: null,   // in-progress draw
+  selected: null,  // {kind:'room'|'wall', id}
+  snapEnabled: true,
+  showDims: true,
+  history: [],
+  histIdx: -1,
+  roomType: ROOM_TYPES[0].key,
+  guides: [],      // [{id, y}] in mm — horizontal guide lines
+};
+
+let canvas, ctx, canvasWrap;
+let dpr = 1;
+let guideDragState = null;  // {id, startPy, origY}
+let guideCounter = 0;
+let isDragInTrash = false;  // ゴミ箱ドロップゾーンにいるか
+let trashAnim = null;       // {progress, startMMx,startMMy,startW,startH,color,targetX,targetY}
+let assistMode = false;     // 補助有りモード
+
+const TRASH_ZONE_H = 72;   // px: ゴミ箱ゾーンの高さ
+
+// ======================================================
+// CHECKLIST
+// ======================================================
+function normalizeRoomName(name) {
+  return (name || '').normalize('NFKC')
+    .replace(/子供/g, '子ども')   // 表記ゆれ許容
+    .toLowerCase()
+    .replace(/[\s　]/g, '');
+}
+
+function getFloorForRoom(room) {
+  const cx = room.x + room.w / 2;
+  const {x, w} = state.site;
+  const f2x = get2Fx();
+  if(is2Story() && cx >= f2x - w * 0.1 && cx <= f2x + w * 1.1) return '2F';
+  if(cx >= x - w * 0.1 && cx <= x + w * 1.1) return '1F';
+  return '外構';
+}
+
+function getChecklistData() {
+  // 要求室を DOM から読む
+  const reqItems = [...document.querySelectorAll('#req-list .req-item')].map(el => ({
+    name:  el.querySelector('[data-field="name"]')?.value?.trim() || '',
+    floor: el.querySelector('[data-field="floor"]')?.value || 'どちらでも',
+    area:  el.querySelector('[data-field="area"]')?.value?.trim() || '',
+    notes: [...el.querySelectorAll('.req-note-input')].map(i => i.value.trim()).filter(Boolean),
+  })).filter(r => r.name);
+
+  // 外構条件
+  const extItems = [...document.querySelectorAll('#ext-list .ext-item')].map(el => ({
+    name:  el.querySelector('[data-field="type"]')?.value?.trim() || '',
+    floor: '外構',
+    area:  el.querySelector('[data-field="note"]')?.value?.trim() || '',
+  })).filter(e => e.name);
+
+  // セクション分類
+  const sections = [
+    {label:'1階',        floor:'1F',       items: reqItems.filter(r => r.floor === '1F')},
+    {label:'2階',        floor:'2F',       items: reqItems.filter(r => r.floor === '2F')},
+    {label:'階数指定なし', floor:'any',   items: reqItems.filter(r => r.floor !== '1F' && r.floor !== '2F')},
+    {label:'外構',       floor:'外構',     items: extItems},
+  ].filter(s => s.items.length > 0);
+
+  // 各要求室が配置済みか照合
+  sections.forEach(sec => {
+    sec.items.forEach(req => {
+      const normReq = normalizeRoomName(req.name);
+      req.placed = state.rooms.some(r => {
+        if(normalizeRoomName(r.name) !== normReq) return false;
+        if(sec.floor === '外構') return true; // 外構は位置問わず名前一致で OK
+        const rf = getFloorForRoom(r);
+        if(sec.floor === '1F')  return rf === '1F';
+        if(sec.floor === '2F')  return rf === '2F';
+        return true; // any
+      });
+    });
+  });
+  return sections;
+}
+
+function toggleAssistMode() {
+  assistMode = !assistMode;
+  const btn = document.getElementById('assist-btn');
+  if(btn) btn.classList.toggle('active', assistMode);
+  showSnack(assistMode ? '補助有りモード ON — 境界線チェックが有効になりました' : '補助有りモード OFF');
+  refreshChecklistBadge();
+  render();
+}
+
+function refreshChecklistBadge() {
+  const sections = getChecklistData();
+  const total = sections.reduce((a, s) => a + s.items.length, 0);
+  const done  = sections.reduce((a, s) => a + s.items.filter(i => i.placed).length, 0);
+  const badge = document.getElementById('checklist-badge');
+  const tab   = document.getElementById('checklist-tab');
+  if(!badge || !tab) return;
+  const rem = total - done;
+  if(assistMode) {
+    // 補助有りモード: 未配置数をバッジ表示
+    badge.textContent = rem > 0 ? rem : (total > 0 ? '✓' : '');
+    tab.classList.toggle('badge-warn',    rem > 0 && total > 0);
+    tab.classList.toggle('badge-ok',      rem === 0 && total > 0);
+    tab.classList.remove('badge-neutral');
+  } else {
+    // 通常モード: 総室数をグレーで表示
+    badge.textContent = total > 0 ? total : '';
+    tab.classList.remove('badge-warn', 'badge-ok');
+    tab.classList.toggle('badge-neutral', total > 0);
+  }
+  // ドロワーが開いていれば中身も更新
+  if(document.getElementById('checklist-drawer').classList.contains('open')) {
+    renderChecklist(sections);
+  }
+  updateSysCheckBtn();
+}
+
+function renderChecklist(sections) {
+  const body = document.getElementById('checklist-body');
+  if(!body) return;
+  const total = sections.reduce((a, s) => a + s.items.length, 0);
+  const done  = sections.reduce((a, s) => a + s.items.filter(i => i.placed).length, 0);
+  if(total === 0) {
+    body.innerHTML = '<p style="font-size:11px;color:var(--sub);text-align:center;padding:20px 0">課題を選択すると<br>チェックリストが表示されます</p>';
+    return;
+  }
+  let html = '';
+  // モードインジケーター
+  if(assistMode) {
+    html += `<div style="font-size:9px;color:var(--accent);margin-bottom:8px;padding:3px 6px;border:1px solid var(--accent);border-radius:3px;font-weight:bold;letter-spacing:.04em;">🔧 補助有りモード</div>`;
+  }
+  sections.forEach(sec => {
+    html += `<div class="cl-section">
+      <div class="cl-section-label">${sec.label}</div>`;
+    sec.items.forEach(item => {
+      let icon, cls;
+      if(assistMode) {
+        icon = item.placed ? '✅' : '❌';
+        cls  = item.placed ? 'placed' : 'missing';
+      } else {
+        icon = '□';
+        cls  = 'missing';
+      }
+      const notesHtml = (item.notes && item.notes.length)
+        ? `<div class="cl-notes">${item.notes.map(n => `<div class="cl-note">・${escHtml(n)}</div>`).join('')}</div>`
+        : '';
+      html += `<div class="cl-item ${cls}">
+        <div class="cl-item-main">
+          <span class="cl-icon">${icon}</span>
+          <span class="cl-name">${escHtml(item.name)}</span>
+          ${item.area ? `<span class="cl-area">${escHtml(item.area)}</span>` : ''}
+        </div>
+        ${notesHtml}
+      </div>`;
+    });
+    html += '</div>';
+  });
+  // 補助モード: 境界線チェックセクション
+  if(assistMode) {
+    html += renderBoundarySection(checkBoundaryViolations());
+    html += `<div class="cl-total"><strong>${done}</strong> / ${total} 室完了</div>`;
+  } else {
+    html += `<div class="cl-total">全 <strong>${total}</strong> 室</div>`;
+  }
+  body.innerHTML = html;
+}
+
+// ======================================================
+// 境界線・道路斜線チェック（補助有りモード）
+// ======================================================
+const DIR_LABEL    = {N:'北', S:'南', E:'東', W:'西'};
+const CORNER_LABEL = {NW:'北西', NE:'北東', SE:'南東', SW:'南西'};
+
+// ── 道路斜線チェック用 高さ定数（mm）──
+// 木造2階建の棟高: 軒高6,100mm + 屋根部（4/10勾配・約1,600mm）≒ 7,700mm を保守的に採用
+const HEIGHT_2F_MM      = 7700; // 2階建部分（2F直下の1F含む）の推定最高高さ
+const HEIGHT_SHITAYA_MM = 3500; // 下屋（1Fのみ・2F室なし）の推定最高高さ
+
+/** 現在の用途地域から道路斜線勾配を取得 */
+function getZoningSlope() {
+  const zEl = document.getElementById('c-zoning');
+  if(!zEl) return 1.25;
+  const opt = zEl.options[zEl.selectedIndex];
+  return parseFloat(opt?.dataset?.slope || '1.25');
+}
+/** 用途地域名を取得 */
+function getZoningName() {
+  return document.getElementById('c-zoning')?.value || '第一種低層住居専用地域';
+}
+
+/** 民法234条（隣地500mm）・セットバック・隅切り違反を返す */
+function checkBoundaryViolations() {
+  const {x, y, w, h} = state.site;
+  const f2x = is2Story() ? get2Fx() : null;
+  const adj = getAdjFromDOM();
+  const NEIGHBOR_MIN = 500; // 民法234条
+  const issues = [];
+
+  state.rooms.forEach(r => {
+    const floor = getFloorForRoom(r);
+    if(floor === '外構') return;
+    const sx = (floor === '2F' && f2x !== null) ? f2x : x;
+    const sy = y, sw = w, sh = h;
+    const name = r.name || r.type || '部屋';
+
+    ['N','S','E','W'].forEach(dir => {
+      const a = adj[dir];
+      if(!a) return;
+      let dist;
+      if(dir === 'N') dist = r.y - sy;
+      if(dir === 'S') dist = (sy + sh) - (r.y + r.h);
+      if(dir === 'E') dist = (sx + sw) - (r.x + r.w);
+      if(dir === 'W') dist = r.x - sx;
+
+      if(a.type !== '道路') {
+        // 民法234条: 隣地から500mm
+        if(dist < NEIGHBOR_MIN) {
+          issues.push({name, type:'neighbor500', dir, dist:Math.round(dist)});
+        }
+      } else {
+        // 建築基準法42条2項: 道路幅 < 4m ならセットバック
+        const rw = parseFloat(a.width);
+        if(rw > 0 && rw < 4) {
+          const needMm = Math.round((2 - rw / 2) * 1000);
+          if(dist < needMm) {
+            issues.push({name, type:'setback', dir, dist:Math.round(dist), need:needMm, width:rw});
+          }
+        }
+      }
+    });
+  });
+
+  // 隅切り部分への配置チェック（1F のみ）
+  const cc = state.site.cornerCuts || {};
+  [['NW',x,y],['NE',x+w,y],['SE',x+w,y+h],['SW',x,y+h]].forEach(([key,tx,ty]) => {
+    const c = cc[key] || 0;
+    if(c <= 0) return;
+    let p1, p2, p3;
+    if(key==='NW'){p1={x:tx,y:ty+c};p2={x:tx+c,y:ty};p3={x:tx,y:ty};}
+    if(key==='NE'){p1={x:tx,y:ty+c};p2={x:tx-c,y:ty};p3={x:tx,y:ty};}
+    if(key==='SE'){p1={x:tx,y:ty-c};p2={x:tx-c,y:ty};p3={x:tx,y:ty};}
+    if(key==='SW'){p1={x:tx,y:ty-c};p2={x:tx+c,y:ty};p3={x:tx,y:ty};}
+    state.rooms.forEach(r => {
+      if(getFloorForRoom(r) !== '1F') return;
+      const roomCorners = [{x:r.x,y:r.y},{x:r.x+r.w,y:r.y},{x:r.x+r.w,y:r.y+r.h},{x:r.x,y:r.y+r.h}];
+      const triCorners  = [p1, p2, p3];
+      const overlap =
+        roomCorners.some(p => pointInTriangle(p.x,p.y,p1.x,p1.y,p2.x,p2.y,p3.x,p3.y)) ||
+        triCorners.some(p  => p.x>=r.x && p.x<=r.x+r.w && p.y>=r.y && p.y<=r.y+r.h);
+      if(overlap && !issues.some(i => i.name===(r.name||r.type||'部屋') && i.type==='cornerCut' && i.corner===key)) {
+        issues.push({name: r.name||r.type||'部屋', type:'cornerCut', corner:key});
+      }
+    });
+  });
+
+  return issues;
+}
+
+function pointInTriangle(px,py,ax,ay,bx,by,cx,cy) {
+  const d1=(px-bx)*(ay-by)-(ax-bx)*(py-by);
+  const d2=(px-cx)*(by-cy)-(bx-cx)*(py-cy);
+  const d3=(px-ax)*(cy-ay)-(cx-ax)*(py-ay);
+  return !((d1<0||d2<0||d3<0)&&(d1>0||d2>0||d3>0));
+}
+
+/**
+ * 指定 1F 部屋の相対位置に 2F 部屋が重なっているか（= 下屋ではない）を判定
+ * 1F/2F は横並び表示のため、サイト基準の相対座標で比較する
+ */
+function has2FroomAbove(room1F) {
+  if(!is2Story()) return false;
+  const {x, y} = state.site;
+  const f2x = get2Fx();
+  const rx = room1F.x - x; // 1F相対X
+  const ry = room1F.y - y; // 1F相対Y
+  return state.rooms.some(r => {
+    if(getFloorForRoom(r) !== '2F') return false;
+    const r2x = r.x - f2x; // 2F相対X
+    const r2y = r.y - y;   // 2F相対Y
+    // 矩形同士のオーバーラップ判定（少し余裕を持たせる）
+    const MARGIN = 100; // mm
+    return r2x < rx + room1F.w - MARGIN && r2x + r.w > rx + MARGIN &&
+           r2y < ry + room1F.h - MARGIN && r2y + r.h > ry + MARGIN;
+  });
+}
+
+/**
+ * 道路斜線チェック
+ * 式: 最大高さ = (道路幅[mm] + 道路境界からの後退距離[mm]) × 勾配
+ * 1F室ごとに2F直下かどうかで使用高さを切り替え
+ */
+function checkRoadOblique() {
+  const {x, y, w, h} = state.site;
+  const adj   = getAdjFromDOM();
+  const slope = getZoningSlope();
+  const issues = [];
+
+  ['N','S','E','W'].forEach(dir => {
+    const a = adj[dir];
+    if(!a || a.type !== '道路') return;
+    const roadWidthMm = parseFloat(a.width) * 1000;
+    if(!roadWidthMm || isNaN(roadWidthMm)) return;
+
+    // 施行令134条：道路対面が公園等の場合、公園幅を道路幅に加算
+    const oppWidthMm = (a.opposite && a.oppositeWidth) ? a.oppositeWidth * 1000 : 0;
+    const effectiveWidthMm = roadWidthMm + oppWidthMm;
+
+    state.rooms.forEach(r => {
+      if(getFloorForRoom(r) !== '1F') return;
+
+      // 道路側境界からこの部屋の最近端までの距離
+      let S; // mm
+      if(dir === 'N') S = r.y - y;
+      if(dir === 'S') S = (y + h) - (r.y + r.h);
+      if(dir === 'E') S = (x + w) - (r.x + r.w);
+      if(dir === 'W') S = r.x - x;
+
+      // 下屋か2階建か判定して高さを決定
+      const under2F   = has2FroomAbove(r);
+      const roomH     = under2F ? HEIGHT_2F_MM : HEIGHT_SHITAYA_MM;
+      const heightLabel = under2F ? '2階建部分' : '下屋';
+
+      // 道路斜線上の許容高さ（公園緩和込み）
+      const D          = effectiveWidthMm + S;
+      const maxAllowed = D * slope;
+
+      if(roomH > maxAllowed) {
+        issues.push({
+          name:       r.name || '部屋',
+          type:       'roadOblique',
+          dir,
+          S:          Math.round(S),
+          roomH,
+          maxAllowed: Math.round(maxAllowed),
+          heightLabel,
+          under2F,
+          parkRelax:  oppWidthMm > 0,
+          parkLabel:  a.opposite || '',
+        });
+      }
+    });
+  });
+  return issues;
+}
+
+/** 境界線・道路斜線チェック結果を HTML セクションとして返す */
+function renderBoundarySection(violations) {
+  const obliqueIssues = checkRoadOblique();
+  const allOk = violations.length === 0 && obliqueIssues.length === 0;
+
+  let html = `<div class="cl-section">
+    <div class="cl-section-label">境界線チェック</div>`;
+
+  if(allOk) {
+    html += `<div class="cl-item placed"><span class="cl-icon">✅</span><span class="cl-name">違反なし</span></div>`;
+  } else {
+    violations.forEach(v => {
+      let msg = '';
+      if(v.type==='neighbor500') msg=`${DIR_LABEL[v.dir]}側 ${v.dist}mm（隣地500mm必要）`;
+      if(v.type==='setback')     msg=`${DIR_LABEL[v.dir]}側 ${v.dist}mm後退（道路${v.width}m→${v.need}mm必要）`;
+      if(v.type==='cornerCut')   msg=`${CORNER_LABEL[v.corner]}隅切り内`;
+      html += `<div class="cl-item missing">
+        <span class="cl-icon">⚠️</span>
+        <span class="cl-name">${escHtml(v.name)}</span>
+        <span class="cl-area" style="font-size:9px;white-space:normal;text-align:right;line-height:1.3;">${escHtml(msg)}</span>
+      </div>`;
+    });
+  }
+  html += '</div>';
+
+  // 道路斜線セクション
+  const slope = getZoningSlope();
+  const zName = getZoningName();
+  html += `<div class="cl-section">
+    <div class="cl-section-label">道路斜線（勾配${slope}・${escHtml(zName)}）</div>`;
+  if(obliqueIssues.length === 0) {
+    html += `<div class="cl-item placed"><span class="cl-icon">✅</span><span class="cl-name">制限内</span></div>`;
+  } else {
+    obliqueIssues.forEach(v => {
+      const park = v.parkRelax ? `（${escHtml(v.parkLabel)}緩和適用）` : '';
+      const msg = `${DIR_LABEL[v.dir]}側 ${v.heightLabel} ${v.roomH}mm > 限界${v.maxAllowed}mm${park}`;
+      html += `<div class="cl-item missing">
+        <span class="cl-icon">⚠️</span>
+        <span class="cl-name">${escHtml(v.name)}</span>
+        <span class="cl-area" style="font-size:9px;white-space:normal;text-align:right;line-height:1.3;">${escHtml(msg)}</span>
+      </div>`;
+    });
+  }
+  html += '</div>';
+
+  return html;
+}
+
+function toggleChecklist() {
+  const drawer = document.getElementById('checklist-drawer');
+  const isOpen = drawer.classList.contains('open');
+  if(!isOpen) {
+    renderChecklist(getChecklistData());
+    updateSysCheckBtn();
+    drawer.classList.add('open');
+  } else {
+    drawer.classList.remove('open');
+  }
+}
+
+// ======================================================
+// HISTORY
+// ======================================================
+function saveHistory() {
+  const snap = JSON.stringify({walls:state.walls, rooms:state.rooms});
+  state.history = state.history.slice(0, state.histIdx+1);
+  state.history.push(snap);
+  if(state.history.length > 60) state.history.shift();
+  state.histIdx = state.history.length - 1;
+  refreshChecklistBadge();
+}
+function undo() {
+  if(state.histIdx <= 0) return;
+  state.histIdx--;
+  const s = JSON.parse(state.history[state.histIdx]);
+  state.walls = s.walls; state.rooms = s.rooms;
+  state.selected = null;
+  render(); updateAreaOverlay();
+}
+function redo() {
+  if(state.histIdx >= state.history.length-1) return;
+  state.histIdx++;
+  const s = JSON.parse(state.history[state.histIdx]);
+  state.walls = s.walls; state.rooms = s.rooms;
+  state.selected = null;
+  render(); updateAreaOverlay();
+}
+
+// ======================================================
+// COORDINATE TRANSFORMS
+// ======================================================
+function mmToScreen(mx, my) {
+  return { x: mx*state.view.scale + state.view.ox,
+           y: my*state.view.scale + state.view.oy };
+}
+function screenToMm(px, py) {
+  return { x: (px - state.view.ox) / state.view.scale,
+           y: (py - state.view.oy) / state.view.scale };
+}
+function snap(mm) {
+  if(!state.snapEnabled) return mm;
+  return Math.round(mm / GRID) * GRID;
+}
+function snapPt(mx, my) {
+  return { x: snap(mx), y: snap(my) };
+}
+function s2mm_snap(px, py) {
+  const m = screenToMm(px, py);
+  return snapPt(m.x, m.y);
+}
+
+// ======================================================
+// RENDERING
+// ======================================================
+function resizeCanvas() {
+  dpr = window.devicePixelRatio || 1;
+  const w = canvasWrap.clientWidth;
+  const h = canvasWrap.clientHeight;
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
+  render();
+}
+
+function render() {
+  if(!ctx) return;
+  const W = canvas.width / dpr, H = canvas.height / dpr;
+  ctx.save();
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0,0,W,H);
+
+  // background
+  ctx.fillStyle = '#f5f0e8';
+  ctx.fillRect(0,0,W,H);
+
+  drawGrid(W, H);
+  drawSite();
+  if(assistMode) drawAssistOverlay();
+  state.rooms.forEach(drawRoom);
+  state.walls.forEach(drawWall);
+  if(state.drawing) drawPreview();
+  if(state.selected) drawSelection();
+  drawGuides(W, H);
+  drawTrashHint(W, H);
+  drawTrashAnim();
+
+  ctx.restore();
+  updateRotateBtn();
+}
+
+/** 補助有りモード: 境界ガイドラインをキャンバスに描画 */
+function drawAssistOverlay() {
+  const {x, y, w, h} = state.site;
+  const adj = getAdjFromDOM();
+  const NEIGHBOR_MIN = 500;
+  ctx.save();
+  ctx.lineWidth = 1;
+
+  // 隣地（道路以外）から500mm — オレンジ破線
+  const sides = [
+    {dir:'N', x1:x,   y1:y+NEIGHBOR_MIN,   x2:x+w, y2:y+NEIGHBOR_MIN},
+    {dir:'S', x1:x,   y1:y+h-NEIGHBOR_MIN, x2:x+w, y2:y+h-NEIGHBOR_MIN},
+    {dir:'E', x1:x+w-NEIGHBOR_MIN, y1:y,   x2:x+w-NEIGHBOR_MIN, y2:y+h},
+    {dir:'W', x1:x+NEIGHBOR_MIN,   y1:y,   x2:x+NEIGHBOR_MIN,   y2:y+h},
+  ];
+  ctx.setLineDash([5, 4]);
+  sides.forEach(({dir, x1, y1, x2, y2}) => {
+    const a = adj[dir];
+    if(!a || a.type === '道路') return;
+    ctx.strokeStyle = 'rgba(245,197,24,0.7)'; // バウハウス黄
+    const p1 = mmToScreen(x1, y1), p2 = mmToScreen(x2, y2);
+    ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+  });
+
+  // 道路セットバックライン（道路幅 < 4m）— 赤破線
+  ctx.setLineDash([6, 3]);
+  [['N',x,y+0,x+w,y+0,'y',+1],['S',x,y+h,x+w,y+h,'y',-1],
+   ['E',x+w,y,x+w,y+h,'x',-1],['W',x,y,x,y+h,'x',+1]].forEach(([dir]) => {
+    const a = adj[dir];
+    if(!a || a.type !== '道路') return;
+    const rw = parseFloat(a.width);
+    if(!(rw > 0 && rw < 4)) return;
+    const sb = (2 - rw / 2) * 1000;
+    let lx1, ly1, lx2, ly2;
+    if(dir==='N'){lx1=x;ly1=y+sb;lx2=x+w;ly2=y+sb;}
+    if(dir==='S'){lx1=x;ly1=y+h-sb;lx2=x+w;ly2=y+h-sb;}
+    if(dir==='E'){lx1=x+w-sb;ly1=y;lx2=x+w-sb;ly2=y+h;}
+    if(dir==='W'){lx1=x+sb;ly1=y;lx2=x+sb;ly2=y+h;}
+    ctx.strokeStyle = 'rgba(211,49,42,0.8)'; // バウハウス赤
+    const p1 = mmToScreen(lx1, ly1), p2 = mmToScreen(lx2, ly2);
+    ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+    // ラベル
+    const mid = mmToScreen((lx1+lx2)/2, (ly1+ly2)/2);
+    ctx.setLineDash([]);
+    ctx.fillStyle='rgba(211,49,42,0.9)';
+    ctx.font=`bold 9px sans-serif`;
+    ctx.textAlign='center'; ctx.textBaseline='bottom';
+    ctx.fillText(`後退${Math.round(sb)}mm`, mid.x, mid.y - 2);
+    ctx.setLineDash([6,3]);
+  });
+
+  // 隅切り警告塗り（半透明赤）
+  const cc = state.site.cornerCuts || {};
+  ctx.setLineDash([]);
+  [['NW',x,y],['NE',x+w,y],['SE',x+w,y+h],['SW',x,y+h]].forEach(([key,tx,ty]) => {
+    const c = cc[key] || 0;
+    if(c <= 0) return;
+    let p1, p2, p3;
+    if(key==='NW'){p1=mmToScreen(tx,ty+c);p2=mmToScreen(tx+c,ty);p3=mmToScreen(tx,ty);}
+    if(key==='NE'){p1=mmToScreen(tx,ty+c);p2=mmToScreen(tx-c,ty);p3=mmToScreen(tx,ty);}
+    if(key==='SE'){p1=mmToScreen(tx,ty-c);p2=mmToScreen(tx-c,ty);p3=mmToScreen(tx,ty);}
+    if(key==='SW'){p1=mmToScreen(tx,ty-c);p2=mmToScreen(tx+c,ty);p3=mmToScreen(tx,ty);}
+    ctx.beginPath(); ctx.moveTo(p1.x,p1.y); ctx.lineTo(p2.x,p2.y); ctx.lineTo(p3.x,p3.y); ctx.closePath();
+    ctx.fillStyle='rgba(211,49,42,0.15)';
+    ctx.fill();
+    ctx.strokeStyle='rgba(211,49,42,0.5)'; ctx.lineWidth=1;
+    ctx.stroke();
+  });
+
+  // ── 道路斜線ライン ───────────────────────────────────
+  // 下屋限界（黄）と2F限界（赤）を道路側境界から内側に引く
+  const slope = getZoningSlope();
+  const roadSides = [
+    {dir:'N', getLine: S => ({x1:x, y1:y+S, x2:x+w, y2:y+S})},
+    {dir:'S', getLine: S => ({x1:x, y1:y+h-S, x2:x+w, y2:y+h-S})},
+    {dir:'E', getLine: S => ({x1:x+w-S, y1:y, x2:x+w-S, y2:y+h})},
+    {dir:'W', getLine: S => ({x1:x+S, y1:y, x2:x+S, y2:y+h})},
+  ];
+  roadSides.forEach(({dir, getLine}) => {
+    const a = adj[dir];
+    if(!a || a.type !== '道路') return;
+    const roadWidthMm = parseFloat(a.width) * 1000;
+    if(!roadWidthMm || isNaN(roadWidthMm)) return;
+
+    // 施行令134条：対面公園等があれば道路幅に加算
+    const oppWidthMm = (a.opposite && a.oppositeWidth) ? a.oppositeWidth * 1000 : 0;
+    const effWidthMm = roadWidthMm + oppWidthMm;
+    const parkSuffix = oppWidthMm > 0 ? '＋緩和' : '';
+
+    // 下屋限界 S_shitaya = H_shitaya / slope - effWidth
+    const S_shitaya = HEIGHT_SHITAYA_MM / slope - effWidthMm;
+    // 2F限界   S_2f     = H_2f / slope - effWidth
+    const S_2f      = HEIGHT_2F_MM      / slope - effWidthMm;
+
+    // 下屋限界ライン（黄・長破線）
+    if(S_shitaya > 0) {
+      const {x1,y1,x2,y2} = getLine(S_shitaya);
+      const p1 = mmToScreen(x1,y1), p2 = mmToScreen(x2,y2);
+      ctx.setLineDash([8,4]); ctx.lineWidth = 1.2;
+      ctx.strokeStyle = 'rgba(245,197,24,0.75)';
+      ctx.beginPath(); ctx.moveTo(p1.x,p1.y); ctx.lineTo(p2.x,p2.y); ctx.stroke();
+      ctx.setLineDash([]);
+      const mid = mmToScreen((x1+x2)/2, (y1+y2)/2);
+      ctx.fillStyle='rgba(180,140,0,0.9)'; ctx.font='bold 8px sans-serif';
+      ctx.textAlign='center'; ctx.textBaseline='bottom';
+      ctx.fillText(`下屋限界(${Math.round(S_shitaya/100)/10}m)${parkSuffix}`, mid.x, mid.y - 1);
+    }
+
+    // 2F限界ライン（赤・短破線）
+    if(S_2f > 0) {
+      const {x1,y1,x2,y2} = getLine(S_2f);
+      const p1 = mmToScreen(x1,y1), p2 = mmToScreen(x2,y2);
+      ctx.setLineDash([5,3]); ctx.lineWidth = 1.2;
+      ctx.strokeStyle = 'rgba(211,49,42,0.75)';
+      ctx.beginPath(); ctx.moveTo(p1.x,p1.y); ctx.lineTo(p2.x,p2.y); ctx.stroke();
+      ctx.setLineDash([]);
+      const mid = mmToScreen((x1+x2)/2, (y1+y2)/2);
+      ctx.fillStyle='rgba(211,49,42,0.9)'; ctx.font='bold 8px sans-serif';
+      ctx.textAlign='center'; ctx.textBaseline='top';
+      ctx.fillText(`2F限界(${Math.round(S_2f/100)/10}m)${parkSuffix}`, mid.x, mid.y + 1);
+    }
+  });
+
+  ctx.setLineDash([]); ctx.restore();
+}
+
+function drawGrid(W, H) {
+  const v = state.view;
+  const mmLeft   = -v.ox / v.scale;
+  const mmTop    = -v.oy / v.scale;
+  const mmRight  = (W - v.ox) / v.scale;
+  const mmBottom = (H - v.oy) / v.scale;
+
+  const startX = Math.floor(mmLeft / GRID) * GRID;
+  const startY = Math.floor(mmTop / GRID) * GRID;
+
+  ctx.lineWidth = 0.5;
+  for(let mx=startX; mx<=mmRight; mx+=GRID) {
+    const px = mx*v.scale + v.ox;
+    const isMod = (mx % (GRID*2)) === 0;
+    ctx.strokeStyle = isMod ? 'rgba(0,0,0,0.12)' : 'rgba(0,0,0,0.06)';
+    ctx.beginPath(); ctx.moveTo(px,0); ctx.lineTo(px,H); ctx.stroke();
+  }
+  for(let my=startY; my<=mmBottom; my+=GRID) {
+    const py = my*v.scale + v.oy;
+    const isMod = (my % (GRID*2)) === 0;
+    ctx.strokeStyle = isMod ? 'rgba(0,0,0,0.12)' : 'rgba(0,0,0,0.06)';
+    ctx.beginPath(); ctx.moveTo(0,py); ctx.lineTo(W,py); ctx.stroke();
+  }
+
+  // Grid label (scale reference)
+  if(v.scale > 0.04) {
+    const px0 = mmToScreen(0,0);
+    ctx.fillStyle = 'rgba(100,100,100,0.5)';
+    ctx.font = `${Math.max(8, 9*v.scale/0.055)}px sans-serif`;
+    // label origin grid
+    for(let mx=startX; mx<=mmRight; mx+=GRID*2) {
+      const px = mx*v.scale + v.ox;
+      if(px < 4 || px > W-4) continue;
+      ctx.fillText((mx/1000).toFixed(3).replace(/\.?0+$/,'')+'m', px+2, 10);
+    }
+  }
+}
+
+// ── 敷地形状 ──────────────────────────────────────────
+function onSiteShapeChange() {
+  const v = document.getElementById('c-site-shape').value;
+  document.getElementById('shape-corner-opts').style.display = v === 'corner'    ? 'block' : 'none';
+  document.getElementById('shape-trap-opts').style.display   = v === 'trapezoid' ? 'block' : 'none';
+  render();
+}
+
+function getSiteShapeOpts() {
+  const shape = document.getElementById('c-site-shape')?.value || 'rect';
+  if(shape === 'corner') {
+    const sz = parseInt(document.getElementById('c-corner-size')?.value) || 1820;
+    const cc = {NE:0, NW:0, SE:0, SW:0};
+    ['NE','NW','SE','SW'].forEach(d => {
+      if(document.getElementById(`c-cut-${d}`)?.checked) cc[d] = sz;
+    });
+    state.site.cornerCuts  = cc;
+    state.site.trapShortH  = 0;
+    state.site.trapShortSide = 'E';
+  } else if(shape === 'trapezoid') {
+    const sh   = parseInt(document.getElementById('c-short-h')?.value)    || 0;
+    const side = document.getElementById('c-short-side')?.value || 'E';
+    state.site.cornerCuts  = {NE:0, NW:0, SE:0, SW:0};
+    state.site.trapShortH  = sh;
+    state.site.trapShortSide = side;
+  } else {
+    state.site.cornerCuts  = {NE:0, NW:0, SE:0, SW:0};
+    state.site.trapShortH  = 0;
+    state.site.trapShortSide = 'E';
+  }
+}
+
+// offsetX: 2F描画時のmm単位X方向オフセット
+function getSitePolygon(offsetX = 0) {
+  const s = state.site;
+  const x = s.x + offsetX, y = s.y, w = s.w, h = s.h;
+  const sh = s.trapShortH || 0;
+  let pts;
+  if(sh > 0 && sh < h) {
+    if(s.trapShortSide === 'W') {
+      pts = [{x,y},{x:x+w,y},{x:x+w,y:y+h},{x,y:y+sh}]; // 西側が短い
+    } else {
+      pts = [{x,y},{x:x+w,y},{x:x+w,y:y+sh},{x,y:y+h}]; // 東側が短い
+    }
+  } else {
+    pts = [{x,y},{x:x+w,y},{x:x+w,y:y+h},{x,y:y+h}]; // 矩形
+  }
+  const cc = s.cornerCuts || {NE:0,NW:0,SE:0,SW:0};
+  if(Object.values(cc).some(v => v > 0)) pts = applyCornerCuts(pts, cc);
+  return pts;
+}
+
+// 各コーナーを隅切りに変換 (NW→NE→SE→SW の順)
+function applyCornerCuts(basePts, cuts) {
+  const order = ['NW','NE','SE','SW'];
+  const n = basePts.length;
+  const result = [];
+  for(let i = 0; i < n; i++) {
+    const key  = order[i];
+    const cutMm = (cuts && cuts[key]) || 0;
+    const curr = basePts[i];
+    if(cutMm <= 0) { result.push({...curr}); continue; }
+    const prev = basePts[(i+n-1)%n];
+    const next = basePts[(i+1)%n];
+    const dxIn = prev.x-curr.x, dyIn = prev.y-curr.y;
+    const dxOut = next.x-curr.x, dyOut = next.y-curr.y;
+    const lenIn  = Math.hypot(dxIn,  dyIn);
+    const lenOut = Math.hypot(dxOut, dyOut);
+    if(lenIn < 1 || lenOut < 1) { result.push({...curr}); continue; }
+    const cm = Math.min(cutMm, lenIn*0.45, lenOut*0.45);
+    result.push({x: curr.x+(dxIn /lenIn )*cm, y: curr.y+(dyIn /lenIn )*cm});
+    result.push({x: curr.x+(dxOut/lenOut)*cm, y: curr.y+(dyOut/lenOut)*cm});
+  }
+  return result;
+}
+
+function mmPtsToScreen(pts) {
+  return pts.map(p => mmToScreen(p.x, p.y));
+}
+
+function strokeSitePolygon(pts, color, lw=2, dash=[8,4]) {
+  const sp = mmPtsToScreen(pts);
+  ctx.beginPath(); ctx.moveTo(sp[0].x, sp[0].y);
+  for(let i=1;i<sp.length;i++) ctx.lineTo(sp[i].x, sp[i].y);
+  ctx.closePath();
+  ctx.strokeStyle=color; ctx.lineWidth=lw; ctx.setLineDash(dash);
+  ctx.stroke(); ctx.setLineDash([]);
+}
+
+function fillSitePolygon(pts, color) {
+  const sp = mmPtsToScreen(pts);
+  ctx.beginPath(); ctx.moveTo(sp[0].x, sp[0].y);
+  for(let i=1;i<sp.length;i++) ctx.lineTo(sp[i].x, sp[i].y);
+  ctx.closePath(); ctx.fillStyle=color; ctx.fill();
+}
+
+/** 道路選択時のみ対面行を表示（道路以外は非表示） */
+function updateOppRowVisibility(dir) {
+  const sel = document.querySelector(`.adj-type[data-dir="${dir}"]`);
+  const row = document.getElementById(`adj-opp-${dir}`);
+  if(row) row.style.display = sel?.value === '道路' ? 'grid' : 'none';
+}
+
+function onAdjTypeChange(dir) {
+  updateOppRowVisibility(dir);
+  drawSiteDiagram();
+}
+
+function getAdjFromDOM() {
+  const adj = {};
+  ['N','S','E','W'].forEach(d => {
+    const te = document.querySelector(`.adj-type[data-dir="${d}"]`);
+    const we = document.querySelector(`.adj-width[data-dir="${d}"]`);
+    const ot = document.querySelector(`.adj-opp-type[data-dir="${d}"]`);
+    const ow = document.querySelector(`.adj-opp-width[data-dir="${d}"]`);
+    adj[d] = {
+      type:          te ? te.value : '宅地',
+      width:         we && we.value ? parseFloat(we.value) : null,
+      opposite:      ot ? ot.value : '',
+      oppositeWidth: ow && ow.value ? parseFloat(ow.value) : 0,
+    };
+  });
+  return adj;
+}
+function is2Story() {
+  // 試験課題は木造2階建のみ。将来拡張のため構造チェックは維持
+  const struct = document.getElementById('c-struct')?.value || '木造2階建';
+  return struct !== '木造平屋';
+}
+
+function get2Fx() {
+  const {x, w} = state.site;
+  return x + w + ADJ_BAND + FLOOR2_GAP;
+}
+function fitViewToSite() {
+  const {x, y, w, h} = state.site;
+  const f2 = is2Story();
+  const mmLeft   = x - ADJ_BAND;
+  const mmTop    = y - ADJ_BAND;
+  const mmRight  = f2 ? (get2Fx() + w) : (x + w + ADJ_BAND);
+  const mmBottom = y + h + ADJ_BAND;
+  const totalW   = mmRight - mmLeft;
+  const totalH   = mmBottom - mmTop;
+  const cW = canvasWrap.clientWidth, cH = canvasWrap.clientHeight;
+  state.view.scale = Math.min((cW * 0.9) / totalW, (cH * 0.85) / totalH);
+  state.view.ox = (cW - totalW * state.view.scale) / 2 - mmLeft * state.view.scale;
+  state.view.oy = (cH - totalH * state.view.scale) / 2 - mmTop * state.view.scale;
+}
+
+function drawSite() {
+  getSiteShapeOpts(); // DOM から形状設定を state.site に反映
+  const {x, y, w, h} = state.site;
+  const sc = state.view.scale;
+  const adj = getAdjFromDOM();
+  const B = ADJ_BAND;
+  const fill  = t => ADJ_FILL[t] || 'rgba(140,140,140,.3)';
+  const adjLabel = a => a.type + (a.type === '道路' && a.width ? ` 幅員${a.width}m` : '');
+  const cc = state.site.cornerCuts || {};
+  const sh = state.site.trapShortH  || 0;
+  const ts = state.site.trapShortSide || 'E';
+  const nwC = cc.NW||0, neC = cc.NE||0, seC = cc.SE||0, swC = cc.SW||0;
+
+  // ── 敷地ポリゴンに沿った隣地帯ポリゴン描画 ──────────────────
+  // 各辺の境界 Y/X 座標（台形・隅切りを考慮）
+  // E壁の下端 / W壁の下端
+  const eWallBot = sh > 0 && ts === 'E' ? y + sh : y + h - seC;
+  const wWallBot = sh > 0 && ts === 'W' ? y + sh : y + h - swC;
+  // S帯の開始 Y（各辺）
+  const seBotY   = eWallBot;
+  const swBotY   = wWallBot;
+  // 台形の内側 SW/SE コーナー位置
+  const innerSWx = x  + swC;
+  const innerSWy = sh > 0 && ts === 'W' ? y + sh : y + h;
+  const innerSEx = x  + w - seC;
+  const innerSEy = sh > 0 && ts === 'E' ? y + sh : y + h;
+
+  // 隣地ポリゴンを塗る
+  const fPoly = (pts, color) => fillSitePolygon(pts, color);
+
+  // N帯（NW/NE の隅切り三角を含む）
+  fPoly([
+    {x: x-B,     y: y-B},
+    {x: x+w+B,   y: y-B},
+    {x: x+w+B,   y: neC > 0 ? y+neC : y},
+    ...(neC > 0 ? [{x: x+w,   y: y+neC}] : []),
+    {x: x+w-neC, y: y},
+    {x: x+nwC,   y: y},
+    ...(nwC > 0 ? [{x: x,     y: y+nwC}] : []),
+    {x: x-B,     y: nwC > 0 ? y+nwC : y},
+  ], fill(adj.N.type));
+
+  // S帯（SW/SE の隅切り三角＋台形の斜辺を含む）
+  fPoly([
+    {x: x-B,     y: swBotY},
+    ...(swC > 0 ? [{x: x,     y: y+h-swC}] : []),
+    {x: innerSWx, y: innerSWy},
+    {x: innerSEx, y: innerSEy},
+    ...(seC > 0 ? [{x: x+w,   y: y+h-seC}] : []),
+    {x: x+w+B,   y: seBotY},
+    {x: x+w+B,   y: y+h+B},
+    {x: x-B,     y: y+h+B},
+  ], fill(adj.S.type));
+
+  // W帯（N帯・S帯の間）
+  fPoly([
+    {x: x-B, y: y+nwC},
+    {x: x,   y: y+nwC},
+    {x: x,   y: wWallBot},
+    {x: x-B, y: wWallBot},
+  ], fill(adj.W.type));
+
+  // E帯（N帯・S帯の間）
+  fPoly([
+    {x: x+w+B, y: y+neC},
+    {x: x+w,   y: y+neC},
+    {x: x+w,   y: eWallBot},
+    {x: x+w+B, y: eWallBot},
+  ], fill(adj.E.type));
+
+  // 敷地ポリゴン内部を用紙色で塗り潰し（帯が敷地内に漏れないよう）
+  fillSitePolygon(getSitePolygon(0), '#f5f0e8');
+
+  // Outer border
+  ctx.strokeStyle = 'rgba(100,100,100,.2)';
+  ctx.lineWidth = 0.5;
+  ctx.setLineDash([4, 4]);
+  const obTL = mmToScreen(x - B, y - B);
+  ctx.strokeRect(obTL.x, obTL.y, (w + 2*B)*sc, (h + 2*B)*sc);
+  ctx.setLineDash([]);
+
+  // Adjacency labels
+  const fSize = Math.max(8, Math.min(12, B*sc / 2.8));
+  ctx.font = `bold ${fSize}px sans-serif`;
+  ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
+  let c;
+  c = mmToScreen(x + w/2, y - B/2);
+  ctx.fillStyle = '#444'; ctx.fillText(adjLabel(adj.N), c.x, c.y);
+  c = mmToScreen(x + w/2, y + h + B/2);
+  ctx.fillStyle = '#444'; ctx.fillText(adjLabel(adj.S), c.x, c.y);
+  c = mmToScreen(x - B/2, y + h/2);
+  ctx.save(); ctx.translate(c.x, c.y); ctx.rotate(-Math.PI/2);
+  ctx.fillStyle = '#444'; ctx.fillText(adjLabel(adj.W), 0, 0); ctx.restore();
+  c = mmToScreen(x + w + B/2, y + h/2);
+  ctx.save(); ctx.translate(c.x, c.y); ctx.rotate(Math.PI/2);
+  ctx.fillStyle = '#444'; ctx.fillText(adjLabel(adj.E), 0, 0); ctx.restore();
+  ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+
+  // ── 1F site outline ──────────────────────────────────
+  const pts1F = getSitePolygon(0);
+  strokeSitePolygon(pts1F, SITE_COLOR, 2, [8,4]);
+  const p1 = mmToScreen(x, y);
+  ctx.fillStyle = SITE_COLOR;
+  ctx.font = 'bold 11px sans-serif';
+  ctx.fillText('1階平面図', p1.x + 4, p1.y - 5);
+  drawSiteDimLabels(x, y, w, h, SITE_COLOR);
+
+  // ── 2F site outline ──────────────────────────────────
+  if(is2Story()) {
+    const f2x = get2Fx();
+    const pts2F = getSitePolygon(f2x - x);
+    const p2 = mmToScreen(f2x, y);
+    fillSitePolygon(pts2F, 'rgba(149,117,205,.05)');
+    strokeSitePolygon(pts2F, '#9575CD', 2, [8,4]);
+    ctx.fillStyle = '#9575CD';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.fillText('2階平面図', p2.x + 4, p2.y - 5);
+    drawSiteDimLabels(f2x, y, w, h, '#9575CD');
+  }
+}
+
+/**
+ * 敷地の各辺に寸法ラベルを描画（4辺、常時表示）
+ */
+function drawSiteDimLabels(sx, sy, sw, sh, color) {
+  const OFFSET = 14; // 境界線からの引き出し距離（px）
+  const fontSize = Math.max(9, Math.min(13, 11 * state.view.scale / 0.055));
+  const wText = sw.toLocaleString('ja-JP') + 'mm';
+  const hText = sh.toLocaleString('ja-JP') + 'mm';
+  ctx.save();
+  ctx.fillStyle = color;
+  ctx.font = `bold ${fontSize}px sans-serif`;
+
+  // 上辺：幅 (sw) → 敷地線の上（外）に表示
+  {
+    const mid = mmToScreen(sx + sw / 2, sy);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(wText, mid.x, mid.y - 3);
+  }
+
+  // 下辺：幅 (sw) → 敷地線の下（外）に表示
+  {
+    const mid = mmToScreen(sx + sw / 2, sy + sh);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText(wText, mid.x, mid.y + 3);
+  }
+
+  // 左辺：奥行き (sh) → 敷地線の左（外）に縦表示
+  {
+    const mid = mmToScreen(sx, sy + sh / 2);
+    ctx.save();
+    ctx.translate(mid.x - OFFSET, mid.y);
+    ctx.rotate(-Math.PI / 2);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(hText, 0, 0);
+    ctx.restore();
+  }
+
+  // 右辺：奥行き (sh) → 敷地線の右（外）に縦表示
+  {
+    const mid = mmToScreen(sx + sw, sy + sh / 2);
+    ctx.save();
+    ctx.translate(mid.x + OFFSET, mid.y);
+    ctx.rotate(Math.PI / 2);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(hText, 0, 0);
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
+function getRoomColor(type) {
+  const t = ROOM_TYPES.find(r=>r.key===type);
+  return t ? t.color : '#FFFFFF';
+}
+
+function drawRoom(room) {
+  const p = mmToScreen(room.x, room.y);
+  const pw = room.w * state.view.scale;
+  const ph = room.h * state.view.scale;
+
+  const col = getRoomColor(room.type);
+  ctx.fillStyle = hexAlpha(col, 0.7);
+  ctx.fillRect(p.x, p.y, pw, ph);
+
+  const isSel = state.selected && state.selected.kind==='room' && state.selected.id===room.id;
+  ctx.strokeStyle = isSel ? SELECTED_COLOR : darken(col);
+  ctx.lineWidth = isSel ? 2.5 : 1.5;
+  ctx.strokeRect(p.x, p.y, pw, ph);
+
+  // Staircase symbol
+  if(room.type === '階段') drawStairsSymbol(p.x, p.y, pw, ph, room.w);
+
+  // Room label
+  const area = (room.w * room.h / 1e6).toFixed(2);
+  const label = room.name || room.type;
+  const fontSize = Math.max(9, Math.min(13, pw/6, ph/3));
+  ctx.fillStyle = '#222';
+  ctx.font = `bold ${fontSize}px sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(label, p.x+pw/2, p.y+ph/2 - fontSize*0.6);
+  ctx.font = `${fontSize*0.85}px sans-serif`;
+  ctx.fillStyle = '#555';
+  ctx.fillText(`${area}㎡`, p.x+pw/2, p.y+ph/2 + fontSize*0.7);
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+
+  // Dimensions
+  if(state.showDims && (pw > 60 || ph > 60)) {
+    drawDimensionLabels(room.x, room.y, room.w, room.h);
+  }
+  // 選択時はリサイズハンドルを描画
+  if(isSel) drawResizeHandles(room);
+}
+
+function drawDimensionLabels(mx, my, mw, mh) {
+  const sc = state.view.scale;
+  if(sc < 0.03) return;
+  const p = mmToScreen(mx,my);
+  const pw = mw*sc, ph = mh*sc;
+  ctx.fillStyle = '#666';
+  ctx.font = '9px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText(fmtMm(mw), p.x+pw/2, p.y-2);
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  ctx.save();
+  ctx.translate(p.x-3, p.y+ph/2);
+  ctx.rotate(-Math.PI/2);
+  ctx.fillText(fmtMm(mh), 0, 0);
+  ctx.restore();
+  ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+}
+
+// rw_mm: room width in mm (determines if 折り返し type)
+function drawStairsSymbol(px, py, pw, ph, rw_mm) {
+  ctx.save();
+  const isFolded = (rw_mm || 0) >= 1365; // 折り返し if ≥ 3 grids wide
+
+  if(isFolded) {
+    // ── 折り返し階段: コの字型矢印 ──────────────────
+    const useVertical = ph >= pw;
+
+    if(useVertical) {
+      const cx = px + pw / 2;
+      // Center dividing line
+      ctx.strokeStyle = 'rgba(40,40,40,.5)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(cx, py+2); ctx.lineTo(cx, py+ph-2); ctx.stroke();
+
+      // Step lines in each half
+      ctx.strokeStyle = 'rgba(40,40,40,.32)'; ctx.lineWidth = 0.7;
+      const sp = Math.max(4, Math.min(ph/5, 13));
+      const n = Math.floor(ph / sp);
+      for(let i = 1; i < n; i++) {
+        const sy = py + i*sp;
+        ctx.beginPath(); ctx.moveTo(px+2, sy); ctx.lineTo(cx-2, sy); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(cx+2, sy); ctx.lineTo(px+pw-2, sy); ctx.stroke();
+      }
+
+      // コの字型 arrow: start bottom-left → up → cross top → down right → arrowhead bottom-right
+      const axL = px + pw*0.25, axR = px + pw*0.75;
+      const ayT = py + ph*0.1,  ayB = py + ph*0.88;
+      const head = Math.min(pw*0.14, 9, ph*0.1);
+
+      ctx.strokeStyle = 'rgba(20,20,20,.75)'; ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.moveTo(axL, ayB);
+      ctx.lineTo(axL, ayT);
+      ctx.lineTo(axR, ayT);
+      ctx.lineTo(axR, ayB - head);
+      ctx.stroke();
+      // Arrowhead (2F exit)
+      ctx.fillStyle = 'rgba(20,20,20,.75)';
+      ctx.beginPath(); ctx.moveTo(axR,ayB); ctx.lineTo(axR-head/2,ayB-head); ctx.lineTo(axR+head/2,ayB-head); ctx.closePath(); ctx.fill();
+      // Start dot (1F entry)
+      ctx.beginPath(); ctx.arc(axL, ayB, Math.min(3.5, pw*0.07), 0, Math.PI*2); ctx.fill();
+
+    } else {
+      // Horizontal folded staircase
+      const cy = py + ph / 2;
+      ctx.strokeStyle = 'rgba(40,40,40,.5)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(px+2, cy); ctx.lineTo(px+pw-2, cy); ctx.stroke();
+
+      ctx.strokeStyle = 'rgba(40,40,40,.32)'; ctx.lineWidth = 0.7;
+      const sp = Math.max(4, Math.min(pw/5, 13));
+      const n = Math.floor(pw / sp);
+      for(let i = 1; i < n; i++) {
+        const sx = px + i*sp;
+        ctx.beginPath(); ctx.moveTo(sx, py+2); ctx.lineTo(sx, cy-2); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(sx, cy+2); ctx.lineTo(sx, py+ph-2); ctx.stroke();
+      }
+
+      const ayT = py + ph*0.25, ayB = py + ph*0.75;
+      const axL = px + pw*0.1,  axR = px + pw*0.9;
+      const head = Math.min(ph*0.14, 9, pw*0.1);
+
+      ctx.strokeStyle = 'rgba(20,20,20,.75)'; ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.moveTo(axL, ayT);
+      ctx.lineTo(axR, ayT);
+      ctx.lineTo(axR, ayB);
+      ctx.lineTo(axL + head, ayB);
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(20,20,20,.75)';
+      ctx.beginPath(); ctx.moveTo(axL,ayB); ctx.lineTo(axL+head,ayB-head/2); ctx.lineTo(axL+head,ayB+head/2); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.arc(axL, ayT, Math.min(3.5, ph*0.07), 0, Math.PI*2); ctx.fill();
+    }
+
+  } else {
+    // ── 直線階段: straight arrow ──────────────────────
+    const vertical = ph >= pw;
+    ctx.strokeStyle = 'rgba(40,40,40,.35)'; ctx.lineWidth = 0.8;
+    if(vertical) {
+      const sp = Math.max(5, Math.min(ph/4, 15));
+      const n = Math.floor(ph / sp);
+      for(let i=1; i<n; i++) {
+        const sy = py + i*sp;
+        ctx.beginPath(); ctx.moveTo(px+1, sy); ctx.lineTo(px+pw-1, sy); ctx.stroke();
+      }
+      const ax=px+pw/2, ay0=py+ph*0.82, ay1=py+ph*0.12;
+      const head=Math.min(pw*0.22,10,ph*0.15);
+      ctx.strokeStyle='rgba(20,20,20,.7)'; ctx.lineWidth=1.8;
+      ctx.beginPath(); ctx.moveTo(ax,ay0); ctx.lineTo(ax,ay1+head); ctx.stroke();
+      ctx.fillStyle='rgba(20,20,20,.7)';
+      ctx.beginPath(); ctx.moveTo(ax,ay1); ctx.lineTo(ax-head/2,ay1+head); ctx.lineTo(ax+head/2,ay1+head); ctx.closePath(); ctx.fill();
+    } else {
+      const sp=Math.max(5,Math.min(pw/4,15));
+      const n=Math.floor(pw/sp);
+      for(let i=1; i<n; i++) {
+        const sx=px+i*sp;
+        ctx.beginPath(); ctx.moveTo(sx,py+1); ctx.lineTo(sx,py+ph-1); ctx.stroke();
+      }
+      const ay=py+ph/2, ax0=px+pw*0.15, ax1=px+pw*0.85;
+      const head=Math.min(ph*0.22,10,pw*0.15);
+      ctx.strokeStyle='rgba(20,20,20,.7)'; ctx.lineWidth=1.8;
+      ctx.beginPath(); ctx.moveTo(ax0,ay); ctx.lineTo(ax1-head,ay); ctx.stroke();
+      ctx.fillStyle='rgba(20,20,20,.7)';
+      ctx.beginPath(); ctx.moveTo(ax1,ay); ctx.lineTo(ax1-head,ay-head/2); ctx.lineTo(ax1-head,ay+head/2); ctx.closePath(); ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
+const GUIDE_H = 14;  // handle height px
+const GUIDE_HW = 22; // handle width px
+
+function drawGuides(W, H) {
+  if(!state.guides.length) return;
+  state.guides.forEach(g => {
+    const py = g.y * state.view.scale + state.view.oy;
+    if(py < -20 || py > H + 20) return;
+
+    // Line (dashed, full width)
+    ctx.strokeStyle = 'rgba(0,190,215,.75)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([10, 5]);
+    ctx.beginPath(); ctx.moveTo(GUIDE_HW+2, py); ctx.lineTo(W-GUIDE_HW-2, py); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Left grip handle (parallel ruler style)
+    const lx = 3, ly = py - GUIDE_H/2;
+    ctx.fillStyle = '#00B8D9';
+    ctx.beginPath(); ctx.roundRect(lx, ly, GUIDE_HW, GUIDE_H, 3); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 0.8;
+    for(let i=1;i<=3;i++){
+      const x = lx + i*(GUIDE_HW/4);
+      ctx.beginPath(); ctx.moveTo(x, ly+3); ctx.lineTo(x, ly+GUIDE_H-3); ctx.stroke();
+    }
+
+    // y-label (distance from site top in mm)
+    const dist = Math.round(g.y - state.site.y);
+    const lbl = (dist >= 0 ? '+' : '') + dist + 'mm';
+    ctx.fillStyle = 'rgba(0,170,200,.9)';
+    ctx.font = 'bold 9px sans-serif';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+    ctx.fillText(lbl, lx + GUIDE_HW + 4, py - 1);
+    ctx.textBaseline = 'alphabetic';
+
+    // Right delete button
+    const rx = W - GUIDE_HW - 3, ry = py - GUIDE_H/2;
+    ctx.fillStyle = 'rgba(220,60,60,.8)';
+    ctx.beginPath(); ctx.roundRect(rx, ry, GUIDE_HW, GUIDE_H, 3); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 10px sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('✕', rx + GUIDE_HW/2, py);
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  });
+}
+
+function findGuideAt(px, py) {
+  const W = canvas.width / dpr;
+  for(const g of state.guides) {
+    const gy = g.y * state.view.scale + state.view.oy;
+    if(Math.abs(py - gy) > 10) continue;
+    // Right delete button
+    if(px >= W - GUIDE_HW - 3 - 4) return {guide: g, action: 'delete'};
+    return {guide: g, action: 'drag'};
+  }
+  return null;
+}
+
+// ── ゴミ箱ドロップゾーンの視覚フィードバック ──────────────
+function drawTrashHint(W, H) {
+  if(!isDragInTrash) return;
+  ctx.save();
+  const grad = ctx.createLinearGradient(0, H-TRASH_ZONE_H, 0, H);
+  grad.addColorStop(0, 'rgba(229,115,115,0)');
+  grad.addColorStop(1, 'rgba(229,115,115,0.38)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, H-TRASH_ZONE_H, W, TRASH_ZONE_H);
+  ctx.font = '30px sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('🗑️', W/2, H - TRASH_ZONE_H/2);
+  ctx.restore();
+}
+
+// ── 吸い込みアニメーション描画 ────────────────────────────
+function drawTrashAnim() {
+  if(!trashAnim) return;
+  const t = trashAnim;
+  const ease  = 1-(1-t.progress)*(1-t.progress); // ease-in
+  const alpha = Math.max(0, 1-ease);
+  ctx.save();
+  ctx.globalAlpha = alpha;
+
+  if(t.kind === 'wall') {
+    // 壁の両端を中心（ゴミ箱）に向けて引き寄せながらフェード
+    const sc = state.view.scale;
+    const p1x = t.x1mm*sc+state.view.ox, p1y = t.y1mm*sc+state.view.oy;
+    const p2x = t.x2mm*sc+state.view.ox, p2y = t.y2mm*sc+state.view.oy;
+    const cur1x = p1x+(t.targetX-p1x)*ease, cur1y = p1y+(t.targetY-p1y)*ease;
+    const cur2x = p2x+(t.targetX-p2x)*ease, cur2y = p2y+(t.targetY-p2y)*ease;
+    ctx.strokeStyle = SELECTED_COLOR;
+    ctx.lineWidth   = Math.max(1, WALL_WIDTH_MM*sc*(1-ease*0.85));
+    ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(cur1x, cur1y); ctx.lineTo(cur2x, cur2y); ctx.stroke();
+    ctx.lineCap = 'butt';
+  } else {
+    // 部屋：縮みながらゴミ箱へ
+    const scale = 1-ease*0.95;
+    const sc = state.view.scale;
+    const cX = t.startMMx*sc+state.view.ox, cY = t.startMMy*sc+state.view.oy;
+    const curX = cX+(t.targetX-cX)*ease, curY = cY+(t.targetY-cY)*ease;
+    const pw = t.startW*sc*scale, ph = t.startH*sc*scale;
+    ctx.fillStyle   = hexAlpha(t.color, 0.8);
+    ctx.fillRect(curX-pw/2, curY-ph/2, pw, ph);
+    ctx.strokeStyle = darken(t.color);
+    ctx.lineWidth   = 1.5;
+    ctx.strokeRect(curX-pw/2, curY-ph/2, pw, ph);
+  }
+
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+function animateTrashDelete(roomId, wallId = null) {
+  const W = canvasWrap.clientWidth, H = canvasWrap.clientHeight;
+  const tx = W/2, ty = H - 20;
+
+  if(wallId) {
+    const w = state.walls.find(w => w.id === wallId);
+    if(!w) { render(); return; }
+    trashAnim = {
+      kind:'wall', progress:0,
+      x1mm:w.x1, y1mm:w.y1, x2mm:w.x2, y2mm:w.y2,
+      targetX:tx, targetY:ty,
+    };
+    state.walls = state.walls.filter(w => w.id !== wallId);
+    state.selected = null;
+    saveHistory();
+  } else {
+    const r = state.rooms.find(ro => ro.id === roomId);
+    if(!r) { updateAreaOverlay(); render(); return; }
+    trashAnim = {
+      kind:'room', progress:0,
+      startMMx: r.x + r.w/2, startMMy: r.y + r.h/2,
+      startW: r.w, startH: r.h,
+      color: getRoomColor(r.type),
+      targetX:tx, targetY:ty,
+    };
+    state.rooms = state.rooms.filter(ro => ro.id !== roomId);
+    state.selected = null;
+    saveHistory(); updateAreaOverlay();
+  }
+
+  function step() {
+    if(!trashAnim) return;
+    trashAnim.progress = Math.min(1, trashAnim.progress + 0.075);
+    render();
+    if(trashAnim.progress < 1) requestAnimationFrame(step);
+    else { trashAnim = null; render(); }
+  }
+  requestAnimationFrame(step);
+}
+
+function deleteSelected() {
+  if(!state.selected) return;
+  if(state.selected.kind === 'room') {
+    state.rooms = state.rooms.filter(r => r.id !== state.selected.id);
+  } else if(state.selected.kind === 'wall') {
+    state.walls = state.walls.filter(w => w.id !== state.selected.id);
+  }
+  state.selected = null;
+  saveHistory(); updateAreaOverlay(); render();
+  switchTool('pan');
+}
+
+function drawWall(wall) {
+  const p1 = mmToScreen(wall.x1, wall.y1);
+  const p2 = mmToScreen(wall.x2, wall.y2);
+  const isSel = state.selected && state.selected.kind==='wall' && state.selected.id===wall.id;
+  ctx.strokeStyle = isSel ? SELECTED_COLOR : WALL_COLOR;
+  ctx.lineWidth = Math.max(1.5, WALL_WIDTH_MM * state.view.scale);
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(p1.x, p1.y);
+  ctx.lineTo(p2.x, p2.y);
+  ctx.stroke();
+  ctx.lineCap = 'butt';
+  if(isSel) drawWallHandles(p1, p2);
+}
+
+function drawPreview() {
+  const d = state.drawing;
+  if(!d) return;
+
+  if(state.tool === 'wall') {
+    const p1 = mmToScreen(d.x1, d.y1);
+    const p2 = mmToScreen(d.x2, d.y2);
+    ctx.strokeStyle = 'rgba(44,44,44,0.5)';
+    ctx.lineWidth = Math.max(1.5, WALL_WIDTH_MM * state.view.scale);
+    ctx.lineCap = 'round';
+    ctx.setLineDash([5,3]);
+    ctx.beginPath(); ctx.moveTo(p1.x,p1.y); ctx.lineTo(p2.x,p2.y); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.lineCap = 'butt';
+    // snap dot
+    drawSnapDot(p1.x, p1.y); drawSnapDot(p2.x, p2.y);
+    // length label
+    const len = Math.sqrt((d.x2-d.x1)**2 + (d.y2-d.y1)**2);
+    showDimTip(p2.x, p2.y, fmtMm(len));
+  } else if(state.tool === 'room') {
+    const p = mmToScreen(d.x, d.y);
+    const pw = d.w * state.view.scale;
+    const ph = d.h * state.view.scale;
+    const col = getRoomColor(state.roomType);
+    ctx.fillStyle = hexAlpha(col, 0.4);
+    ctx.fillRect(p.x, p.y, pw, ph);
+    ctx.strokeStyle = darken(col);
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([5,3]);
+    ctx.strokeRect(p.x, p.y, pw, ph);
+    ctx.setLineDash([]);
+    drawSnapDot(p.x+pw, p.y+ph);
+    const area = Math.abs(d.w * d.h / 1e6).toFixed(2);
+    showDimTip(p.x+pw, p.y+ph, `${fmtMm(Math.abs(d.w))} × ${fmtMm(Math.abs(d.h))} (${area}㎡)`);
+  }
+}
+
+function drawSelection() {
+  const sel = state.selected;
+  if(!sel) return;
+  if(sel.kind==='wall') {
+    const w = state.walls.find(w=>w.id===sel.id);
+    if(w) drawWall(w); // already drawn with selection color in drawWall
+  }
+}
+
+function drawSnapDot(px, py) {
+  ctx.fillStyle = var_accent();
+  ctx.beginPath(); ctx.arc(px, py, 4, 0, Math.PI*2); ctx.fill();
+}
+
+// ======================================================
+// INPUT HANDLING
+// ======================================================
+let pointer = {down:false, startX:0, startY:0, lastX:0, lastY:0, id:null};
+let pinch = {active:false, dist:0, midX:0, midY:0};
+let dragState = null;        // {mode:'move'|'resize', roomId, handle, startPx,startPy, origX,origY,origW,origH}
+let longPressTimer = null;
+let longPressFired = false;
+let lastTapTime = 0;         // ダブルタップ検出用
+let lastTapKey  = null;      // 直前にタップした対象 ('r'+id / 'w'+id)
+
+const HANDLE_HIT  = 16; // px  ヒット判定半径（指でも当たりやすいよう大きめ）
+const HANDLE_DRAW =  9; // px  描画半径
+
+function getHandleAt(px, py, room) {
+  const p  = mmToScreen(room.x, room.y);
+  const pw = room.w * state.view.scale;
+  const ph = room.h * state.view.scale;
+  const pts = { nw:[p.x,p.y], ne:[p.x+pw,p.y], sw:[p.x,p.y+ph], se:[p.x+pw,p.y+ph] };
+  for(const [id,[hx,hy]] of Object.entries(pts)) {
+    if(Math.hypot(px-hx, py-hy) <= HANDLE_HIT) return id;
+  }
+  return null;
+}
+
+function drawResizeHandles(room) {
+  const p  = mmToScreen(room.x, room.y);
+  const pw = room.w * state.view.scale;
+  const ph = room.h * state.view.scale;
+  [[p.x,p.y],[p.x+pw,p.y],[p.x,p.y+ph],[p.x+pw,p.y+ph]].forEach(([hx,hy]) => {
+    ctx.beginPath(); ctx.arc(hx, hy, HANDLE_DRAW, 0, Math.PI*2);
+    ctx.fillStyle = SELECTED_COLOR; ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+  });
+}
+
+// 壁の端点ハンドルヒット ('p1'|'p2'|null)
+function getWallEndpointAt(px, py, wall) {
+  const p1 = mmToScreen(wall.x1, wall.y1);
+  const p2 = mmToScreen(wall.x2, wall.y2);
+  if(Math.hypot(px-p1.x, py-p1.y) <= HANDLE_HIT) return 'p1';
+  if(Math.hypot(px-p2.x, py-p2.y) <= HANDLE_HIT) return 'p2';
+  return null;
+}
+
+// 壁選択時の端点ハンドル描画
+function drawWallHandles(p1, p2) {
+  [p1, p2].forEach(p => {
+    ctx.beginPath(); ctx.arc(p.x, p.y, HANDLE_DRAW, 0, Math.PI*2);
+    ctx.fillStyle = SELECTED_COLOR; ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+  });
+  // 中点ハンドル（移動の目印）
+  const mx = (p1.x+p2.x)/2, my = (p1.y+p2.y)/2;
+  ctx.beginPath(); ctx.arc(mx, my, HANDLE_DRAW*0.72, 0, Math.PI*2);
+  ctx.fillStyle = '#fff'; ctx.fill();
+  ctx.strokeStyle = SELECTED_COLOR; ctx.lineWidth = 2; ctx.stroke();
+}
+
+function roomsOverlap(r1, r2) {
+  const T = 2; // 2mm tolerance — 隣接はOK
+  return !(r1.x+r1.w <= r2.x+T || r2.x+r2.w <= r1.x+T ||
+           r1.y+r1.h <= r2.y+T || r2.y+r2.h <= r1.y+T);
+}
+
+
+function updateRotateBtn() {
+  const btn = document.getElementById('rotate-btn');
+  if(!btn) return;
+  if(!state.selected || state.selected.kind !== 'room') {
+    btn.style.display = 'none'; return;
+  }
+  const r = state.rooms.find(ro => ro.id === state.selected.id);
+  if(!r) { btn.style.display = 'none'; return; }
+  const p = mmToScreen(r.x + r.w/2, r.y);
+  const rect = canvasWrap.getBoundingClientRect();
+  btn.style.display = 'flex';
+  btn.style.left = (rect.left + p.x) + 'px';
+  btn.style.top  = (rect.top  + p.y - 40) + 'px';
+}
+
+function getPointerPos(e, el) {
+  const rect = el.getBoundingClientRect();
+  const t = (e.touches && e.touches.length > 0) ? e.touches[0]
+           : (e.changedTouches && e.changedTouches.length > 0) ? e.changedTouches[0]
+           : null;
+  if(t) return {x: t.clientX - rect.left, y: t.clientY - rect.top};
+  return {x: e.clientX - rect.left, y: e.clientY - rect.top};
+}
+
+function getTouchDist(t1, t2) {
+  return Math.hypot(t2.clientX-t1.clientX, t2.clientY-t1.clientY);
+}
+
+// ※ canvas イベントリスナーは init() 内で登録 (canvas変数がinit()で設定されるため)
+
+function onDown(e) {
+  const pos = getPointerPos(e, canvas);
+  pointer = {down:true, startX:pos.x, startY:pos.y, lastX:pos.x, lastY:pos.y};
+  longPressFired = false;
+
+  // ⓪ ガイドライン操作を最優先チェック
+  const gh = findGuideAt(pos.x, pos.y);
+  if(gh) {
+    clearTimeout(longPressTimer); longPressTimer = null;
+    if(gh.action === 'delete') {
+      state.guides = state.guides.filter(g => g.id !== gh.guide.id);
+      pointer.down = false;
+      render(); return;
+    } else {
+      guideDragState = {id: gh.guide.id, startPy: pos.y, origY: gh.guide.y};
+      return;
+    }
+  }
+
+  // ① 選択済みオブジェクトのハンドル or 本体ドラッグを即時開始
+  // 編集ツール時はドラッグを開始しない（タップのみでモーダルを開く）
+  if(state.selected && state.selected.kind === 'wall' && state.tool !== 'select') {
+    const w = state.walls.find(w => w.id === state.selected.id);
+    if(w) {
+      const ep = getWallEndpointAt(pos.x, pos.y, w);
+      if(ep) {
+        clearTimeout(longPressTimer); longPressTimer = null;
+        dragState = {mode:'wall-endpoint', wallId:w.id, endpoint:ep,
+          startPx:pos.x, startPy:pos.y,
+          origX1:w.x1, origY1:w.y1, origX2:w.x2, origY2:w.y2};
+        return;
+      }
+      if(distToSegment(pos.x, pos.y, w) < HIT_WALL * 3) {
+        clearTimeout(longPressTimer); longPressTimer = null;
+        dragState = {mode:'wall-move', wallId:w.id,
+          startPx:pos.x, startPy:pos.y,
+          origX1:w.x1, origY1:w.y1, origX2:w.x2, origY2:w.y2};
+        return;
+      }
+    }
+  }
+  if(state.selected && state.selected.kind === 'room' && state.tool !== 'select') {
+    const r = state.rooms.find(ro => ro.id === state.selected.id);
+    if(r) {
+      // コーナーハンドル（リサイズ）
+      const handle = getHandleAt(pos.x, pos.y, r);
+      if(handle) {
+        dragState = {mode:'resize', roomId:r.id, handle,
+          startPx:pos.x, startPy:pos.y,
+          origX:r.x, origY:r.y, origW:r.w, origH:r.h};
+        return;
+      }
+      // 部屋本体（移動）
+      const m = screenToMm(pos.x, pos.y);
+      if(m.x >= r.x && m.x <= r.x+r.w && m.y >= r.y && m.y <= r.y+r.h) {
+        dragState = {mode:'move', roomId:r.id,
+          startPx:pos.x, startPy:pos.y,
+          origX:r.x, origY:r.y};
+        return;
+      }
+    }
+  }
+
+  if(e.button === 1) return; // 中ボタン = パンのみ
+
+  // ② ダブルタップ選択（部屋 + 壁 対応）
+  if(state.tool === 'pan') {
+    const nowDT = Date.now();
+    const mDT = screenToMm(pos.x, pos.y);
+    const hitRoom = state.rooms.find(r => mDT.x>=r.x && mDT.x<=r.x+r.w && mDT.y>=r.y && mDT.y<=r.y+r.h);
+    const hitWall = !hitRoom ? state.walls.find(w => distToSegment(pos.x, pos.y, w) < HIT_WALL*2.5) : null;
+    const hitKey  = hitRoom ? ('r'+hitRoom.id) : hitWall ? ('w'+hitWall.id) : null;
+
+    if(hitKey && nowDT - lastTapTime < DOUBLE_TAP_MS && lastTapKey === hitKey) {
+      // ダブルタップ確定
+      if(hitRoom) {
+        state.selected = {kind:'room', id: hitRoom.id};
+        lastTapTime = 0; lastTapKey = null;
+        render(); openRoomModal(hitRoom); return; // ← ダブルタップで直接モーダルを開く
+      } else if(hitWall) {
+        state.selected = {kind:'wall', id: hitWall.id};
+      }
+      lastTapTime = 0; lastTapKey = null;
+      render(); return;
+    }
+    lastTapTime = nowDT;
+    lastTapKey  = hitKey;
+  }
+
+  // ③ 長押し → 部屋・壁のドラッグ移動（pan含む全ツール共通）
+  longPressTimer = setTimeout(() => {
+    longPressFired = true;
+    longPressTimer = null;
+    const lx = pointer.lastX, ly = pointer.lastY;
+    const m = screenToMm(lx, ly);
+    // 部屋チェック
+    for(let i = state.rooms.length - 1; i >= 0; i--) {
+      const r = state.rooms[i];
+      if(m.x >= r.x && m.x <= r.x+r.w && m.y >= r.y && m.y <= r.y+r.h) {
+        state.drawing = null;
+        dragState = {mode:'move', roomId:r.id,
+          startPx:lx, startPy:ly, origX:r.x, origY:r.y};
+        state.selected = {kind:'room', id:r.id};
+        if(navigator.vibrate) navigator.vibrate(40);
+        render(); return;
+      }
+    }
+    // 壁チェック
+    for(let i = state.walls.length - 1; i >= 0; i--) {
+      const w = state.walls[i];
+      if(distToSegment(lx, ly, w) < HIT_WALL * 3) {
+        state.drawing = null;
+        dragState = {mode:'wall-move', wallId:w.id,
+          startPx:lx, startPy:ly,
+          origX1:w.x1, origY1:w.y1, origX2:w.x2, origY2:w.y2};
+        state.selected = {kind:'wall', id:w.id};
+        if(navigator.vibrate) navigator.vibrate(40);
+        render(); return;
+      }
+    }
+  }, LONG_PRESS_MS);
+
+  if(state.tool === 'pan') return; // pan: 描画なし（長押しタイマーは動く）
+
+  if(state.tool === 'wall') {
+    const m = s2mm_snap(pos.x, pos.y);
+    state.drawing = {x1:m.x, y1:m.y, x2:m.x, y2:m.y};
+  } else if(state.tool === 'room') {
+    const m = s2mm_snap(pos.x, pos.y);
+    state.drawing = {x:m.x, y:m.y, w:0, h:0};
+  }
+  render();
+}
+
+function onMove(e) {
+  const pos = getPointerPos(e, canvas);
+  updateDimTip(pos.x, pos.y);
+
+  if(!pointer.down) return;
+  const dx = pos.x - pointer.lastX, dy = pos.y - pointer.lastY;
+  pointer.lastX = pos.x; pointer.lastY = pos.y;
+
+  // ガイドドラッグ
+  if(guideDragState) {
+    const g = state.guides.find(g => g.id === guideDragState.id);
+    if(g) {
+      const newY = guideDragState.origY + (pos.y - guideDragState.startPy) / state.view.scale;
+      g.y = state.snapEnabled ? snap(newY) : newY;
+      render();
+    }
+    return;
+  }
+
+  // ドラッグ中（移動 or リサイズ）
+  if(dragState) {
+    handleDrag(pos);
+    return;
+  }
+
+  // 大きく動いたら長押しキャンセル
+  if(longPressTimer) {
+    const tdx = Math.abs(pos.x - pointer.startX);
+    const tdy = Math.abs(pos.y - pointer.startY);
+    if(tdx > 8 || tdy > 8) {
+      clearTimeout(longPressTimer);
+      longPressTimer = null;
+    }
+  }
+
+  if(state.tool === 'pan' || (!state.drawing && state.tool !== 'erase')) {
+    state.view.ox += dx; state.view.oy += dy;
+    render(); updateZoomInfo(); return;
+  }
+
+  if(state.tool === 'wall' && state.drawing) {
+    const m = s2mm_snap(pos.x, pos.y);
+    const dx2 = Math.abs(m.x - state.drawing.x1);
+    const dy2 = Math.abs(m.y - state.drawing.y1);
+    if(dx2 > dy2) { state.drawing.x2=m.x; state.drawing.y2=state.drawing.y1; }
+    else          { state.drawing.x2=state.drawing.x1; state.drawing.y2=m.y; }
+    render();
+  } else if(state.tool === 'room' && state.drawing) {
+    const m = s2mm_snap(pos.x, pos.y);
+    state.drawing.w = m.x - state.drawing.x;
+    state.drawing.h = m.y - state.drawing.y;
+    render();
+  } else if(state.tool === 'erase') {
+    eraseAt(pos.x, pos.y);
+  }
+}
+
+function handleDrag(pos) {
+  // ── 壁：全体移動 ────────────────────────────────────────
+  if(dragState.mode === 'wall-move') {
+    const w = state.walls.find(w => w.id === dragState.wallId);
+    if(!w) return;
+    // ゴミ箱ゾーン
+    const nit = pos.y > canvasWrap.clientHeight - TRASH_ZONE_H;
+    if(nit !== isDragInTrash) {
+      isDragInTrash = nit;
+      document.getElementById('t-erase').classList.toggle('trash-hot', isDragInTrash);
+      if(navigator.vibrate && isDragInTrash) navigator.vibrate(30);
+    }
+    const ddxMm = (pos.x - dragState.startPx) / state.view.scale;
+    const ddyMm = (pos.y - dragState.startPy) / state.view.scale;
+    w.x1 = snap(dragState.origX1 + ddxMm); w.y1 = snap(dragState.origY1 + ddyMm);
+    w.x2 = snap(dragState.origX2 + ddxMm); w.y2 = snap(dragState.origY2 + ddyMm);
+    render(); return;
+  }
+  // ── 壁：端点変更 ────────────────────────────────────────
+  if(dragState.mode === 'wall-endpoint') {
+    const w = state.walls.find(w => w.id === dragState.wallId);
+    if(!w) return;
+    const m = s2mm_snap(pos.x, pos.y);
+    if(dragState.endpoint === 'p1') { w.x1 = m.x; w.y1 = m.y; }
+    else                            { w.x2 = m.x; w.y2 = m.y; }
+    const p = mmToScreen(m.x, m.y);
+    const len = Math.sqrt((w.x2-w.x1)**2+(w.y2-w.y1)**2);
+    showDimTip(p.x, p.y, fmtMm(len));
+    render(); return;
+  }
+
+  // ── 部屋：移動 / リサイズ ────────────────────────────────
+  const r = state.rooms.find(ro => ro.id === dragState.roomId);
+  if(!r) return;
+
+  // ゴミ箱ゾーン判定（移動モードのみ）
+  if(dragState.mode === 'move') {
+    const newInTrash = pos.y > canvasWrap.clientHeight - TRASH_ZONE_H;
+    if(newInTrash !== isDragInTrash) {
+      isDragInTrash = newInTrash;
+      document.getElementById('t-erase').classList.toggle('trash-hot', isDragInTrash);
+      if(navigator.vibrate && isDragInTrash) navigator.vibrate(30);
+    }
+  }
+
+  const others = state.rooms.filter(ro => ro.id !== r.id);
+  const {startPx, startPy, origX, origY, origW, origH} = dragState;
+  const ddxMm = (pos.x - startPx) / state.view.scale;
+  const ddyMm = (pos.y - startPy) / state.view.scale;
+
+  if(dragState.mode === 'move') {
+    const newX = snap(origX + ddxMm);
+    const newY = snap(origY + ddyMm);
+    // 移動中は重なりを許可（ドロップ時にチェック）
+    r.x = newX; r.y = newY;
+    const p = mmToScreen(r.x, r.y);
+    showDimTip(p.x + r.w*state.view.scale, p.y,
+      `${fmtMm(r.x)}, ${fmtMm(r.y)}`);
+  } else {
+    // リサイズ
+    const h = dragState.handle;
+    let newX=origX, newY=origY, newW=origW, newH=origH;
+    if(h==='nw'){ newX=snap(origX+ddxMm); newY=snap(origY+ddyMm); newW=snap(origW-ddxMm); newH=snap(origH-ddyMm); }
+    if(h==='ne'){                          newY=snap(origY+ddyMm); newW=snap(origW+ddxMm); newH=snap(origH-ddyMm); }
+    if(h==='sw'){ newX=snap(origX+ddxMm);                          newW=snap(origW-ddxMm); newH=snap(origH+ddyMm); }
+    if(h==='se'){                                                   newW=snap(origW+ddxMm); newH=snap(origH+ddyMm); }
+    if(newW >= GRID && newH >= GRID) {
+      const test = {...r, x:newX, y:newY, w:newW, h:newH};
+      if(!others.some(ro => roomsOverlap(test, ro))) {
+        r.x=newX; r.y=newY; r.w=newW; r.h=newH;
+      }
+    }
+    const area = (r.w*r.h/1e6).toFixed(2);
+    const p = mmToScreen(r.x, r.y);
+    showDimTip(p.x + r.w*state.view.scale, p.y + r.h*state.view.scale,
+      `${fmtMm(r.w)} × ${fmtMm(r.h)} (${area}㎡)`);
+  }
+  updateAreaOverlay();
+  render();
+}
+
+function onUp(e) {
+  clearTimeout(longPressTimer);
+  longPressTimer = null;
+  if(!pointer.down) return;
+  pointer.down = false;
+
+  // ガイドドラッグ終了
+  if(guideDragState) { guideDragState = null; return; }
+
+  // ドラッグ終了
+  if(dragState) {
+    const isWallMove = dragState.mode === 'wall-move';
+    const isWallEP   = dragState.mode === 'wall-endpoint';
+
+    // ゴミ箱ゾーンにドロップ → 吸い込みアニメーションで削除
+    if(isDragInTrash && (dragState.mode === 'move' || isWallMove)) {
+      const roomId = !isWallMove ? dragState.roomId : null;
+      const wallId = isWallMove  ? dragState.wallId : null;
+      dragState = null; isDragInTrash = false;
+      document.getElementById('t-erase').classList.remove('trash-hot');
+      hideDimTip();
+      animateTrashDelete(roomId, wallId);
+      return;
+    }
+    isDragInTrash = false;
+    document.getElementById('t-erase').classList.remove('trash-hot');
+
+    // 壁ドラッグ終了
+    if(isWallMove || isWallEP) {
+      dragState = null;
+      saveHistory(); render(); hideDimTip(); return;
+    }
+
+    // 部屋ドラッグ終了（既存）
+    const r = state.rooms.find(ro => ro.id === dragState.roomId);
+    if(dragState.mode === 'move' && r) {
+      const others = state.rooms.filter(ro => ro.id !== r.id);
+      if(others.some(ro => roomsOverlap(r, ro))) {
+        r.x = dragState.origX;
+        r.y = dragState.origY;
+        showSnack('空いている場所に置いてください');
+      }
+    }
+    dragState = null;
+    saveHistory(); updateAreaOverlay(); render();
+    hideDimTip(); return;
+  }
+  if(longPressFired) {
+    longPressFired = false;
+    hideDimTip(); return;
+  }
+
+  const pos = getPointerPos(e, canvas);
+  if(state.tool === 'wall' && state.drawing) {
+    const d = state.drawing;
+    if(d.x1!==d.x2 || d.y1!==d.y2) {
+      state.walls.push({id:Date.now(), x1:d.x1, y1:d.y1, x2:d.x2, y2:d.y2});
+      saveHistory(); updateAreaOverlay();
+    }
+    state.drawing = null; render();
+  } else if(state.tool === 'room' && state.drawing) {
+    const d = state.drawing;
+    if(Math.abs(d.w) > 100 && Math.abs(d.h) > 100) {
+      const newRoom = {
+        id: Date.now(),
+        x: d.w>0 ? d.x : d.x+d.w,
+        y: d.h>0 ? d.y : d.y+d.h,
+        w: Math.abs(d.w), h: Math.abs(d.h),
+        type: state.roomType,
+        name: state.roomType === 'その他'
+          ? (document.getElementById('other-name-input').value.trim() || 'その他')
+          : state.roomType,
+        note:'',
+      };
+      // 重なりチェック
+      if(state.rooms.some(r => roomsOverlap(newRoom, r))) {
+        showSnack('他の部屋と重なっています');
+      } else {
+        state.rooms.push(newRoom);
+        saveHistory(); updateAreaOverlay();
+        state.drawing = null;
+        switchTool('pan');
+        return;
+      }
+    }
+    state.drawing = null; render();
+  }
+  // 短いタップ処理（ツール別・マウス・タッチ共通）
+  const _tdx = Math.abs(pos.x - pointer.startX);
+  const _tdy = Math.abs(pos.y - pointer.startY);
+  const _isShortTap = _tdx <= DRAG_THRESHOLD_PX && _tdy <= DRAG_THRESHOLD_PX;
+
+  if(state.tool === 'pan' && _isShortTap) {
+    const m = screenToMm(pos.x, pos.y);
+    const hit = state.rooms.find(r => m.x>=r.x && m.x<=r.x+r.w && m.y>=r.y && m.y<=r.y+r.h);
+    if(!hit && state.selected) {
+      state.selected = null; render();
+    } else if(hit && state.selected && state.selected.kind==='room' && state.selected.id===hit.id) {
+      // 選択済み部屋を再タップ → 編集モーダル
+      openRoomModal(hit);
+    } else if(hit) {
+      // 未選択の部屋をタップ → まず選択状態に（2回目のタップでモーダルが開く）
+      state.selected = {kind:'room', id: hit.id};
+      render();
+    }
+  } else if(state.tool === 'select' && _isShortTap) {
+    // タッチでも確実にモーダルを開く（click イベントは preventDefault で抑制される）
+    selectAt(pos.x, pos.y);
+  } else if(state.tool === 'erase' && _isShortTap) {
+    eraseAt(pos.x, pos.y);
+  }
+  hideDimTip();
+}
+
+function onClick(e) {
+  // タッチ由来の click は onUp で処理済み（preventDefault でここには来ない）
+  // マウス click のみここで処理（二重発火防止）
+  if(longPressFired) return;
+  if(e.detail === 0) return; // 合成クリックを除外
+  const pos = getPointerPos(e, canvas);
+  const dx = Math.abs(pos.x - pointer.startX), dy = Math.abs(pos.y - pointer.startY);
+  if(dx > 5 || dy > 5) return;
+
+  // select / erase はマウス用（タッチは onUp 内で処理済み）
+  if(state.tool === 'select') {
+    selectAt(pos.x, pos.y);
+  } else if(state.tool === 'erase') {
+    eraseAt(pos.x, pos.y);
+  }
+}
+
+function onWheel(e) {
+  e.preventDefault();
+  const pos = getPointerPos(e, canvas);
+  const factor = e.deltaY < 0 ? 1.1 : 0.9;
+  zoomAt(pos.x, pos.y, factor);
+}
+
+// Touch events
+function onTouchStart(e) {
+  e.preventDefault();
+  if(e.touches.length === 2) {
+    pinch.active = true;
+    pinch.dist = getTouchDist(e.touches[0], e.touches[1]);
+    pinch.midX = (e.touches[0].clientX + e.touches[1].clientX)/2 - canvas.getBoundingClientRect().left;
+    pinch.midY = (e.touches[0].clientY + e.touches[1].clientY)/2 - canvas.getBoundingClientRect().top;
+    state.drawing = null; render();
+    return;
+  }
+  pinch.active = false;
+  onDown(e);
+}
+
+function onTouchMove(e) {
+  e.preventDefault();
+  if(e.touches.length === 2 && pinch.active) {
+    const newDist = getTouchDist(e.touches[0], e.touches[1]);
+    const factor = newDist / pinch.dist;
+    pinch.dist = newDist;
+    const midX = (e.touches[0].clientX + e.touches[1].clientX)/2 - canvas.getBoundingClientRect().left;
+    const midY = (e.touches[0].clientY + e.touches[1].clientY)/2 - canvas.getBoundingClientRect().top;
+    zoomAt(midX, midY, factor);
+    return;
+  }
+  if(!pinch.active) onMove(e);
+}
+
+function onTouchEnd(e) {
+  e.preventDefault();
+  if(e.touches.length < 2) pinch.active = false;
+  if(e.touches.length === 0) onUp(e);
+}
+
+// ======================================================
+// ZOOM & PAN
+// ======================================================
+function zoomAt(px, py, factor) {
+  const mm = screenToMm(px, py);
+  state.view.scale = Math.max(0.005, Math.min(0.4, state.view.scale * factor));
+  state.view.ox = px - mm.x * state.view.scale;
+  state.view.oy = py - mm.y * state.view.scale;
+  render(); updateZoomInfo();
+}
+
+function updateZoomInfo() {
+  const pct = Math.round(state.view.scale / 0.055 * 100);
+  document.getElementById('zoom-info').textContent = pct + '%';
+}
+
+// ======================================================
+// SELECT / ERASE
+// ======================================================
+const HIT_ROOM = 10; // px
+const HIT_WALL = 8;  // px
+
+function selectAt(px, py) {
+  const m = screenToMm(px, py);
+  // Check rooms first
+  for(let i=state.rooms.length-1; i>=0; i--) {
+    const r = state.rooms[i];
+    if(m.x>=r.x && m.x<=r.x+r.w && m.y>=r.y && m.y<=r.y+r.h) {
+      state.selected = {kind:'room', id:r.id};
+      render();
+      openRoomModal(r);
+      return;
+    }
+  }
+  // Check walls
+  for(let i=state.walls.length-1; i>=0; i--) {
+    const w = state.walls[i];
+    if(distToSegment(px, py, w) < HIT_WALL) {
+      state.selected = {kind:'wall', id:w.id};
+      render(); return;
+    }
+  }
+  state.selected = null;
+  render();
+}
+
+function eraseAt(px, py) {
+  const m = screenToMm(px, py);
+  const prevLen = state.rooms.length + state.walls.length;
+  // erase rooms under pointer
+  state.rooms = state.rooms.filter(r => {
+    return !(m.x>=r.x && m.x<=r.x+r.w && m.y>=r.y && m.y<=r.y+r.h);
+  });
+  // erase walls near pointer
+  state.walls = state.walls.filter(w => distToSegment(px, py, w) >= HIT_WALL);
+  if(state.rooms.length + state.walls.length < prevLen) {
+    saveHistory(); updateAreaOverlay();
+    switchTool('pan');
+  }
+  render();
+}
+
+function distToSegment(px, py, wall) {
+  const p1 = mmToScreen(wall.x1, wall.y1);
+  const p2 = mmToScreen(wall.x2, wall.y2);
+  const dx = p2.x-p1.x, dy = p2.y-p1.y;
+  const len2 = dx*dx+dy*dy;
+  if(len2===0) return Math.hypot(px-p1.x, py-p1.y);
+  const t = Math.max(0, Math.min(1, ((px-p1.x)*dx+(py-p1.y)*dy)/len2));
+  return Math.hypot(px-(p1.x+t*dx), py-(p1.y+t*dy));
+}
+
+// ======================================================
+// AREA OVERLAY
+// ======================================================
+function updateAreaOverlay() {
+  const grouped = {};
+  state.rooms.forEach(r => {
+    const area = r.w * r.h / 1e6;
+    grouped[r.name] = (grouped[r.name]||0) + area;
+  });
+  const total = Object.values(grouped).reduce((a,b)=>a+b, 0);
+  document.getElementById('area-total').textContent = total.toFixed(2) + ' m²';
+  const listEl = document.getElementById('area-list');
+  listEl.innerHTML = Object.entries(grouped)
+    .sort((a,b)=>b[1]-a[1])
+    .map(([name, area]) => `<div>${escHtml(name)}: ${area.toFixed(1)}㎡</div>`)
+    .join('');
+}
+
+// ======================================================
+// ROOM MODAL
+// ======================================================
+let editingRoom = null;
+
+function openRoomModal(room) {
+  editingRoom = room;
+  document.getElementById('modal-title').textContent = '部屋を編集';
+  document.getElementById('m-name').value = room.name;
+  document.getElementById('m-w').value = room.w;
+  document.getElementById('m-h').value = room.h;
+  document.getElementById('m-note').value = room.note || '';
+  const sel = document.getElementById('m-type');
+  sel.innerHTML = ROOM_TYPES.map(t=>`<option value="${t.key}" ${t.key===room.type?'selected':''}>${t.key}</option>`).join('');
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+document.getElementById('m-ok').onclick = () => {
+  if(!editingRoom) return;
+  const r = state.rooms.find(r=>r.id===editingRoom.id);
+  if(r) {
+    r.name = document.getElementById('m-name').value || r.type;
+    r.type = document.getElementById('m-type').value;
+    r.w = parseInt(document.getElementById('m-w').value) || r.w;
+    r.h = parseInt(document.getElementById('m-h').value) || r.h;
+    r.note = document.getElementById('m-note').value;
+    saveHistory(); updateAreaOverlay(); render();
+  }
+  closeModal();
+};
+document.getElementById('m-delete').onclick = () => {
+  if(!editingRoom) return;
+  state.rooms = state.rooms.filter(r=>r.id!==editingRoom.id);
+  state.selected = null;
+  saveHistory(); updateAreaOverlay(); render();
+  closeModal();
+};
+document.getElementById('m-cancel').onclick = closeModal;
+function closeModal() {
+  editingRoom = null;
+  state.selected = null;
+  document.getElementById('modal-overlay').classList.remove('open');
+  render();
+}
+
+// ======================================================
+// TOOLBAR
+// ======================================================
+function switchTool(tool) {
+  // ゴミ箱タップ時、選択中のオブジェクトがあれば削除
+  if(tool === 'erase' && state.selected) {
+    deleteSelected();
+    return;
+  }
+  state.tool = tool;
+  state.drawing = null;
+  dragState = null;
+  document.querySelectorAll('.tbtn').forEach(b => b.classList.remove('active'));
+  const btn = document.querySelector(`[data-tool="${tool}"]`);
+  if(btn) btn.classList.add('active');
+  canvas.style.cursor = tool==='pan' ? 'grab' : tool==='erase' ? 'cell' : tool==='select' ? 'pointer' : 'crosshair';
+  if(tool === 'room') openRoomPanel(); else closeRoomPanel();
+  render();
+}
+
+document.querySelectorAll('[data-tool]').forEach(btn => {
+  btn.addEventListener('click', () => switchTool(btn.dataset.tool));
+});
+
+// ======================================================
+// ROOM PANEL
+// ======================================================
+function buildRoomTypeGrid() {
+  const grid = document.getElementById('room-type-grid');
+
+  // カテゴリ順を取得
+  const cats = [];
+  ROOM_TYPES.forEach(t => { if(!cats.includes(t.cat)) cats.push(t.cat); });
+
+  let html = '';
+  cats.forEach(cat => {
+    const types = ROOM_TYPES.filter(t => t.cat === cat);
+    html += `<div class="rtype-cat-label">${cat}</div>`;
+    html += `<div class="rtype-cat-grid">`;
+    types.forEach(t => {
+      const hasTmpl = t.templates && t.templates.length > 0;
+      html += `<button class="rtype-btn ${t.key===state.roomType?'sel':''}" data-type="${t.key}">
+        <div class="rtype-dot" style="background:${t.color};border:1px solid #aaa;"></div>
+        ${t.label.split('\n')[0]}${hasTmpl ? '<span style="font-size:9px;opacity:.5;margin-left:2px">▼</span>' : ''}
+      </button>`;
+    });
+    html += `</div>`;
+  });
+  grid.innerHTML = html;
+
+  const otherRow = document.getElementById('other-name-row');
+  // 選択中がその他なら入力欄を表示
+  otherRow.style.display = state.roomType === 'その他' ? 'block' : 'none';
+
+  grid.querySelectorAll('.rtype-btn').forEach(btn => {
+    const typeKey = btn.dataset.type;
+    const typeObj = ROOM_TYPES.find(t => t.key === typeKey);
+    let tpTimer = null;
+
+    // タップ → 部屋タイプ選択
+    btn.addEventListener('click', () => {
+      state.roomType = typeKey;
+      grid.querySelectorAll('.rtype-btn').forEach(b => b.classList.remove('sel'));
+      btn.classList.add('sel');
+      // その他 → 名前入力欄を表示
+      otherRow.style.display = typeKey === 'その他' ? 'block' : 'none';
+      if(typeKey === 'その他') {
+        setTimeout(() => document.getElementById('other-name-input').focus(), 100);
+      }
+    });
+
+    // 長押し → テンプレート選択
+    if(typeObj && typeObj.templates && typeObj.templates.length > 0) {
+      btn.addEventListener('touchstart', () => {
+        tpTimer = setTimeout(() => { showTemplatePopup(typeObj); }, 500);
+      }, {passive:true});
+      btn.addEventListener('touchend',  () => clearTimeout(tpTimer));
+      btn.addEventListener('touchmove', () => clearTimeout(tpTimer));
+      btn.addEventListener('mousedown', () => {
+        tpTimer = setTimeout(() => { showTemplatePopup(typeObj); }, 500);
+      });
+      btn.addEventListener('mouseup',   () => clearTimeout(tpTimer));
+      btn.addEventListener('mouseleave',() => clearTimeout(tpTimer));
+    }
+  });
+}
+
+// テンプレートポップアップ
+function showTemplatePopup(typeObj) {
+  const overlay = document.getElementById('tmpl-overlay');
+  const popup   = document.getElementById('template-popup');
+  document.getElementById('tmpl-title').textContent =
+    `${typeObj.key} — テンプレート選択（長押し）`;
+
+  const list = document.getElementById('tmpl-list');
+  list.innerHTML = typeObj.templates.map((t, i) =>
+    `<button class="tmpl-btn" data-idx="${i}">
+       <span>${t.label}</span>
+       <span class="tmpl-area">${fmtMm(t.w)}×${fmtMm(t.h)}</span>
+     </button>`
+  ).join('');
+
+  list.querySelectorAll('.tmpl-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tmpl = typeObj.templates[parseInt(btn.dataset.idx)];
+      closeTemplatePopup();
+      closeRoomPanel();
+      state.roomType = typeObj.key;
+      placeTemplateRoom(typeObj, tmpl.w, tmpl.h);
+    });
+  });
+
+  overlay.classList.add('show');
+  overlay.style.display = 'block';
+  popup.style.display   = 'block';
+  popup.classList.add('show');
+}
+
+function closeTemplatePopup() {
+  const overlay = document.getElementById('tmpl-overlay');
+  const popup   = document.getElementById('template-popup');
+  overlay.classList.remove('show');
+  overlay.style.display = 'none';
+  popup.classList.remove('show');
+  popup.style.display   = 'none';
+}
+
+document.getElementById('tmpl-cancel-btn').onclick = closeTemplatePopup;
+document.getElementById('tmpl-overlay').onclick    = closeTemplatePopup;
+
+// 回転ボタン
+document.getElementById('rotate-btn').addEventListener('click', () => {
+  if(!state.selected || state.selected.kind !== 'room') return;
+  const r = state.rooms.find(ro => ro.id === state.selected.id);
+  if(!r) return;
+  // 中心を基準にw/hを入れ替え
+  const cx = r.x + r.w/2;
+  const cy = r.y + r.h/2;
+  const newW = r.h, newH = r.w;
+  r.w = newW; r.h = newH;
+  r.x = snap(cx - newW/2);
+  r.y = snap(cy - newH/2);
+  saveHistory(); updateAreaOverlay(); render();
+});
+
+function placeTemplateRoom(typeObj, w, h) {
+  // ビューの中心付近（スナップ済み）に配置
+  const W  = canvasWrap.clientWidth, H = canvasWrap.clientHeight;
+  const cx = snap((W/2 - state.view.ox) / state.view.scale - w/2);
+  const cy = snap((H/2 - state.view.oy) / state.view.scale - h/2);
+
+  // 重なりを避けるため少しずつずらして探す
+  let bestX = cx, bestY = cy, placed = false;
+  outer:
+  for(let oy = 0; oy <= state.site.h; oy += GRID) {
+    for(let ox = 0; ox <= state.site.w; ox += GRID) {
+      const tx = snap(cx + ox), ty = snap(cy + oy);
+      const test = {x:tx, y:ty, w, h};
+      if(!state.rooms.some(r => roomsOverlap(test, r))) {
+        bestX = tx; bestY = ty; placed = true; break outer;
+      }
+    }
+  }
+
+  const customName = typeObj.key === 'その他'
+    ? (document.getElementById('other-name-input').value.trim() || 'その他')
+    : typeObj.key;
+  const newRoom = {
+    id: Date.now(), x:bestX, y:bestY, w, h,
+    type: typeObj.key, name: customName, note:'',
+  };
+  state.rooms.push(newRoom);
+  state.selected = {kind:'room', id: newRoom.id};
+  saveHistory(); updateAreaOverlay();
+  showSnack(`${typeObj.key} を配置。ダブルタップで選択・ドラッグで移動`);
+  switchTool('pan');
+}
+
+function openRoomPanel() {
+  document.getElementById('room-panel').classList.add('open');
+  document.getElementById('overlay-blocker').classList.add('show');
+}
+function closeRoomPanel() {
+  document.getElementById('room-panel').classList.remove('open');
+  document.getElementById('overlay-blocker').classList.remove('show');
+}
+
+// ======================================================
+// CONDITIONS PANEL
+// ======================================================
+document.getElementById('cond-btn').onclick = () => {
+  const panel = document.getElementById('cond-panel');
+  const isOpen = panel.classList.contains('open');
+  if(isOpen) {
+    panel.classList.remove('open');
+    document.getElementById('overlay-blocker').classList.remove('show');
+  } else {
+    panel.classList.add('open');
+    closeRoomPanel();
+    document.getElementById('overlay-blocker').classList.add('show');
+  }
+};
+
+document.getElementById('overlay-blocker').onclick = () => {
+  document.getElementById('cond-panel').classList.remove('open');
+  document.getElementById('save-panel').classList.remove('open');
+  closeRoomPanel();
+  document.getElementById('overlay-blocker').classList.remove('show');
+};
+
+// Apply site dimensions
+document.getElementById('apply-site-btn').onclick = () => {
+  state.site.w = parseInt(document.getElementById('c-site-w').value) || state.site.w;
+  state.site.h = parseInt(document.getElementById('c-site-d').value) || state.site.h;
+  fitViewToSite();
+  render(); updateZoomInfo();
+  showSnack('敷地を更新しました');
+};
+
+// ── Site diagram ──────────────────────────────────────
+const ADJ_COLORS = {
+  '道路':'#E8A24A','宅地':'#9E9E9E','公園':'#4CAF50','緑地':'#66BB6A',
+  '水路':'#42A5F5','河川':'#1E88E5','空地':'#FFF9C4','広場':'#B2EBF2',
+  '里道':'#BCAAA4','線路敷':'#616161'
+};
+function drawSiteDiagram() {
+  getSiteShapeOpts(); // state.site を更新してから使う
+  const adj = getAdjFromDOM();
+  const siteW = state.site.w || parseInt(document.getElementById('c-site-w')?.value) || 0;
+  const siteH = state.site.h || parseInt(document.getElementById('c-site-d')?.value) || 0;
+  const S = 140, B = 28, I = S - B*2;
+  const cx = S/2, cy = S/2;
+  const c = t => ADJ_COLORS[t] || '#9E9E9E';
+  const adjLabel = (t, w) => t + (t === '道路' && w ? ` ${w}m` : '');
+  const dimLabel = mm => mm ? mm.toLocaleString('ja-JP') + 'mm' : '';
+  const wLabel = dimLabel(siteW);
+  const hLabel = dimLabel(siteH);
+
+  // 敷地ポリゴンを SVG 座標に変換（台形・隅切りを正しく描画）
+  let sitePoly = `<rect x="${B}" y="${B}" width="${I}" height="${I}" fill="#f5f0e8" stroke="#6495ED" stroke-width="1.5"/>`;
+  if(siteW > 0 && siteH > 0) {
+    const pts = getSitePolygon(0);
+    const { x: sx, y: sy } = state.site;
+    const ptStr = pts.map(p => {
+      const px = (B + (p.x - sx) / siteW * I).toFixed(1);
+      const py = (B + (p.y - sy) / siteH * I).toFixed(1);
+      return `${px},${py}`;
+    }).join(' ');
+    sitePoly = `<polygon points="${ptStr}" fill="#f5f0e8" stroke="#6495ED" stroke-width="1.5"/>`;
+  }
+
+  // S帯の上端 Y（台形の場合は斜辺の最高点に合わせる）
+  const sh = state.site.trapShortH || 0;
+  const ts = state.site.trapShortSide || 'E';
+  const sBandTopY = sh > 0 ? B + (sh / siteH) * I : S-B;
+
+  const svg = `<svg viewBox="0 0 ${S} ${S}" xmlns="http://www.w3.org/2000/svg" font-family="sans-serif">
+    <!-- 隣地帯 -->
+    <rect x="0"      y="0"     width="${S}"  height="${B}"  fill="${c(adj.N.type)}"/>
+    <rect x="0"      y="${S-B}" width="${S}"  height="${B}"  fill="${c(adj.S.type)}"/>
+    <rect x="0"      y="${B}"   width="${B}"  height="${I}"  fill="${c(adj.W.type)}"/>
+    <rect x="${S-B}"  y="${B}"   width="${B}"  height="${I}"  fill="${c(adj.E.type)}"/>
+    ${sh > 0 && ts === 'E' ? `<!-- 台形S帯（短辺E）補完 --><rect x="${S-B}" y="${sBandTopY}" width="${B}" height="${S-B-sBandTopY}" fill="${c(adj.S.type)}"/>` : ''}
+    ${sh > 0 && ts === 'W' ? `<!-- 台形S帯（短辺W）補完 --><rect x="0" y="${sBandTopY}" width="${B}" height="${S-B-sBandTopY}" fill="${c(adj.S.type)}"/>` : ''}
+    <!-- 敷地（実際の形状） -->
+    ${sitePoly}
+    <!-- 隣地ラベル -->
+    <text x="${cx}"    y="${B/2+4}"    text-anchor="middle" font-size="8" fill="#222">${adjLabel(adj.N.type,adj.N.width)}</text>
+    <text x="${cx}"    y="${S-B/2+4}"  text-anchor="middle" font-size="8" fill="#222">${adjLabel(adj.S.type,adj.S.width)}</text>
+    <text x="${B/2}"   y="${cy}"       text-anchor="middle" font-size="8" fill="#222" transform="rotate(-90,${B/2},${cy})">${adjLabel(adj.W.type,adj.W.width)}</text>
+    <text x="${S-B/2}" y="${cy}"       text-anchor="middle" font-size="8" fill="#222" transform="rotate(90,${S-B/2},${cy})">${adjLabel(adj.E.type,adj.E.width)}</text>
+    <!-- 敷地寸法ラベル（青・敷地線の外側） -->
+    ${wLabel ? `<text x="${cx}" y="${B-3}" text-anchor="middle" font-size="7.5" fill="#2952c8" font-weight="bold">${wLabel}</text>` : ''}
+    ${wLabel ? `<text x="${cx}" y="${S-B+11}" text-anchor="middle" font-size="7.5" fill="#2952c8" font-weight="bold">${wLabel}</text>` : ''}
+    ${hLabel ? `<text x="${B-3}" y="${cy+3}" text-anchor="middle" font-size="7.5" fill="#2952c8" font-weight="bold" transform="rotate(-90,${B-3},${cy})">${hLabel}</text>` : ''}
+    ${hLabel ? `<text x="${S-B+4}" y="${cy+3}" text-anchor="middle" font-size="7.5" fill="#2952c8" font-weight="bold" transform="rotate(90,${S-B+4},${cy})">${hLabel}</text>` : ''}
+    <!-- コンパス（敷地外・北西角） -->
+    <text x="10" y="9" text-anchor="middle" font-size="7" fill="#6495ED" font-weight="bold">N</text>
+    <polygon points="10,12 7,20 13,20" fill="#6495ED" opacity=".7"/>
+  </svg>`;
+  document.getElementById('site-diagram').innerHTML = svg;
+}
+// 初期状態：全方位の対面行を初期化（道路のみ表示）
+['N','S','E','W'].forEach(updateOppRowVisibility);
+drawSiteDiagram();
+
+// ── Requirements list ─────────────────────────────────
+let reqCounter = 0;
+function addReqRow(name='', floor='どちらでも', area='', notes=[]) {
+  const id = ++reqCounter;
+  const item = document.createElement('div');
+  item.className = 'req-item';
+  item.dataset.id = id;
+  const floorOpts = ['どちらでも','1F','2F'].map(v =>
+    `<option${v===floor?' selected':''}>${v}</option>`).join('');
+  const notesHtml = (Array.isArray(notes) ? notes : []).map(n =>
+    `<div class="req-note-row">
+      <span class="req-note-bullet">・</span>
+      <input type="text" class="req-note-input" value="${escHtml(n)}" placeholder="条件を入力">
+      <button class="req-note-del">✕</button>
+    </div>`
+  ).join('');
+  item.innerHTML = `
+    <div class="req-card-header">
+      <input type="text" class="req-name-input" placeholder="室名" value="${escHtml(name)}" data-field="name">
+      <select data-field="floor" style="font-size:11px;padding:4px 4px;">${floorOpts}</select>
+      <button class="req-del" data-del="${id}">✕</button>
+    </div>
+    <div class="req-card-area">
+      <span class="req-field-label">床面積</span>
+      <input type="text" placeholder="例：20㎡以上、8畳以上" value="${escHtml(area)}" data-field="area">
+    </div>
+    <div class="req-notes-section">
+      <span class="req-field-label">備　考</span>
+      <div class="req-notes-list">${notesHtml}</div>
+      <button class="req-add-note">＋ 条件を追加</button>
+    </div>
+  `;
+  document.getElementById('req-list').appendChild(item);
+  item.querySelector('[data-del]').onclick = () => item.remove();
+  item.querySelector('.req-add-note').onclick = () => addNoteRow(item.querySelector('.req-notes-list'));
+  item.querySelectorAll('.req-note-del').forEach(btn => {
+    btn.onclick = () => btn.closest('.req-note-row').remove();
+  });
+}
+function addNoteRow(container, value='') {
+  const row = document.createElement('div');
+  row.className = 'req-note-row';
+  row.innerHTML = `
+    <span class="req-note-bullet">・</span>
+    <input type="text" class="req-note-input" value="${escHtml(value)}" placeholder="条件を入力">
+    <button class="req-note-del">✕</button>
+  `;
+  container.appendChild(row);
+  row.querySelector('.req-note-del').onclick = () => row.remove();
+  row.querySelector('input').focus();
+}
+document.getElementById('add-req-btn').onclick = () => addReqRow();
+// Pre-populate
+['居間・食堂・台所','主寝室','子ども室','浴室','洗面脱衣室','トイレ','玄関'].forEach(n => addReqRow(n));
+
+// ── Exterior conditions ───────────────────────────────
+let extCounter = 0;
+function addExtRow(type='駐車場', note='') {
+  const id = ++extCounter;
+  const item = document.createElement('div');
+  item.className = 'ext-item';
+  item.dataset.id = id;
+  const types = ['駐車場','駐輪場','スロープ','植栽帯','庭','テラス','デッキ','車庫','その他'];
+  const opts = types.map(v => `<option${v===type?' selected':''}>${v}</option>`).join('');
+  item.innerHTML = `
+    <select data-field="type">${opts}</select>
+    <input type="text" placeholder="備考" value="${escHtml(note)}" data-field="note">
+    <button class="ext-del" data-del="${id}">✕</button>
+  `;
+  document.getElementById('ext-list').appendChild(item);
+  item.querySelector('[data-del]').onclick = () => item.remove();
+}
+document.getElementById('add-ext-btn').onclick = () => addExtRow();
+
+// ======================================================
+// SYSTEM CHECK (フェーズB)
+// ======================================================
+
+/** 面積要件文字列をパース → {minM2, maxM2, minW, minH} */
+function parseAreaReq(areaStr) {
+  if(!areaStr || !areaStr.trim()) return null;
+  const s = areaStr;
+
+  // 寸法指定 (例: "4550×4550" "（1820×1820）")
+  const dimM = s.match(/[（(]?(\d+)[×x](\d+)[）)]?/);
+  const minW = dimM ? parseInt(dimM[1]) : null;
+  const minH = dimM ? parseInt(dimM[2]) : null;
+
+  // ㎡指定
+  const m2M = s.match(/(\d+(?:\.\d+)?)㎡/);
+  if(m2M) {
+    const v = parseFloat(m2M[1]);
+    if(s.includes('以上')) return {minM2: v,        maxM2: null,    minW, minH};
+    if(s.includes('以下')) return {minM2: null,      maxM2: v,       minW, minH};
+    return                        {minM2: v * 0.80,  maxM2: v * 1.25, minW, minH};
+  }
+  // 坪指定 (1坪 ≈ 3.31㎡)
+  const tsuboM = s.match(/(\d+(?:\.\d+)?)坪/);
+  if(tsuboM) {
+    const v = parseFloat(tsuboM[1]) * TSUBO_M2;
+    if(s.includes('以上')) return {minM2: v,       maxM2: null, minW, minH};
+    return                        {minM2: v * 0.80, maxM2: null, minW, minH};
+  }
+  // 畳指定 (1畳 ≈ 1.65㎡)
+  const tatamiM = s.match(/(\d+(?:\.\d+)?)畳/);
+  if(tatamiM) {
+    const v = parseFloat(tatamiM[1]) * TATAMI_M2;
+    if(s.includes('以上')) return {minM2: v,       maxM2: null,    minW, minH};
+    return                        {minM2: v * 0.80, maxM2: v * 1.3, minW, minH};
+  }
+  // 寸法だけ
+  if(minW && minH) return {minM2: null, maxM2: null, minW, minH};
+  return null;
+}
+
+/** B-1: 要求室配置チェック */
+function checkRoomsPlaced() {
+  const sections = getChecklistData();
+  const items = sections.flatMap(s => s.items.map(it => ({
+    name: it.name, area: it.area, floor: s.floor, placed: it.placed
+  })));
+  const total  = items.length;
+  const placed = items.filter(i => i.placed).length;
+  return {total, placed, items};
+}
+
+/** B-2: 面積要件チェック */
+function checkAreas() {
+  const sections = getChecklistData();
+  const results  = [];
+
+  sections.forEach(sec => {
+    sec.items.forEach(req => {
+      if(!req.placed) return; // 未配置は B-1 で検出済み
+      const req2 = parseAreaReq(req.area);
+      if(!req2) return; // 面積指定なし → スキップ
+
+      // 同名の配置済み部屋を取得
+      const normReq = normalizeRoomName(req.name);
+      const room = state.rooms.find(r => {
+        if(normalizeRoomName(r.name) !== normReq) return false;
+        const rf = getFloorForRoom(r);
+        if(sec.floor === '1F')   return rf === '1F';
+        if(sec.floor === '2F')   return rf === '2F';
+        if(sec.floor === '外構') return true;
+        return true;
+      });
+      if(!room) return;
+
+      const areaM2 = (room.w * room.h) / 1_000_000; // mm²→m²
+      const msgs   = [];
+      let ok = true;
+
+      if(req2.minM2 !== null && areaM2 < req2.minM2) {
+        ok = false;
+        msgs.push(`${areaM2.toFixed(1)}㎡ < 下限${req2.minM2.toFixed(1)}㎡`);
+      }
+      if(req2.maxM2 !== null && areaM2 > req2.maxM2) {
+        ok = false;
+        msgs.push(`${areaM2.toFixed(1)}㎡ > 上限${req2.maxM2.toFixed(1)}㎡`);
+      }
+      if(req2.minW && (room.w < req2.minW && room.h < req2.minW)) {
+        ok = false;
+        msgs.push(`幅 ${room.w}mm < 必要${req2.minW}mm`);
+      }
+      if(req2.minH && (room.h < req2.minH && room.w < req2.minH)) {
+        ok = false;
+        msgs.push(`奥行 ${room.h}mm < 必要${req2.minH}mm`);
+      }
+
+      results.push({
+        name: req.name,
+        ok,
+        actual: areaM2,
+        req: req.area,
+        detail: ok ? `${areaM2.toFixed(1)}㎡ ✓` : msgs.join('、'),
+      });
+    });
+  });
+  return results;
+}
+
+/** B-3: 敷地内収まりチェック */
+function checkSiteBounds() {
+  const {x, y, w, h} = state.site;
+  const f2x = is2Story() ? get2Fx() : null;
+  const issues = [];
+
+  state.rooms.forEach(r => {
+    const floor = getFloorForRoom(r);
+    if(floor === '外構') return; // 外構はチェック対象外
+    const sx = floor === '2F' && f2x !== null ? f2x : x;
+    const sy = y, sw = w, sh = h;
+    const out = r.x < sx || r.y < sy || r.x + r.w > sx + sw || r.y + r.h > sy + sh;
+    if(out) issues.push(r.name);
+  });
+  return issues;
+}
+
+/** 建蔽率・延床面積チェック */
+function checkFloorArea() {
+  const {w, h} = state.site;
+  const siteAreaM2 = (w * h) / 1_000_000;
+
+  const coverageLimit = parseFloat(document.getElementById('c-coverage').value) || null;
+  const farLimit      = parseFloat(document.getElementById('c-far').value)      || null;
+  const targetArea    = parseFloat(document.getElementById('c-floor-area').value) || null;
+
+  // 1F rooms footprint
+  const f1Rooms  = state.rooms.filter(r => getFloorForRoom(r) === '1F');
+  const f2Rooms  = state.rooms.filter(r => getFloorForRoom(r) === '2F');
+  const extRooms = state.rooms.filter(r => getFloorForRoom(r) === '外構');
+
+  const footprintM2   = f1Rooms.reduce((a, r)  => a + (r.w * r.h) / 1_000_000, 0);
+  const f2AreaM2      = f2Rooms.reduce((a, r)  => a + (r.w * r.h) / 1_000_000, 0);
+  const totalFloorM2  = footprintM2 + f2AreaM2;
+  const coverageRate  = siteAreaM2 > 0 ? (footprintM2 / siteAreaM2 * 100) : 0;
+  const farRate       = siteAreaM2 > 0 ? (totalFloorM2 / siteAreaM2 * 100) : 0;
+
+  return {
+    siteAreaM2, footprintM2, totalFloorM2, coverageRate, farRate,
+    coverageLimit, farLimit, targetArea,
+    coverageOk: coverageLimit ? coverageRate <= coverageLimit + 0.5 : true,
+    farOk:      farLimit      ? farRate      <= farLimit      + 0.5 : true,
+    targetOk:   targetArea    ? Math.abs(totalFloorM2 - targetArea) / targetArea <= 0.15 : true,
+  };
+}
+
+/** チェック実行 → モーダル表示 */
+function runSystemCheck() {
+  const placed  = checkRoomsPlaced();
+  const areas   = checkAreas();
+  const bounds  = checkSiteBounds();
+  const floor   = checkFloorArea();
+
+  const placedOk = placed.placed === placed.total;
+  const areasOk  = areas.every(a => a.ok);
+  const boundsOk = bounds.length === 0;
+  const allOk    = placedOk && areasOk && boundsOk && floor.coverageOk && floor.farOk;
+  const anyFail  = !placedOk || !areasOk || !boundsOk || !floor.coverageOk || !floor.farOk;
+
+  let html = '';
+
+  // ── 要求室 ───────────────────────────────
+  html += `<div class="chk-section">
+    <div class="chk-section-title">① 要求室・外構 &nbsp;
+      <span style="font-weight:normal;color:${placedOk?'#81C784':'#EF9A9A'}">${placed.placed}/${placed.total} 室</span>
+    </div>`;
+  placed.items.forEach(it => {
+    const cls = it.placed ? 'ok' : 'ng';
+    const ico = it.placed ? '✅' : '❌';
+    html += `<div class="chk-item ${cls}">
+      <span class="chk-icon">${ico}</span>
+      <span class="chk-name">${escHtml(it.name)}</span>
+      <span class="chk-detail">${it.floor !== 'any' ? it.floor : ''}</span>
+    </div>`;
+  });
+  if(placed.items.length === 0) html += '<div style="font-size:11px;color:var(--sub);padding:4px 0">課題の要求室が設定されていません</div>';
+  html += '</div>';
+
+  // ── 面積要件 ─────────────────────────────
+  html += `<div class="chk-section">
+    <div class="chk-section-title">② 面積要件 &nbsp;
+      <span style="font-weight:normal;color:${areasOk?'#81C784':'#EF9A9A'}">${areas.filter(a=>a.ok).length}/${areas.length} 件OK</span>
+    </div>`;
+  areas.forEach(a => {
+    const cls = a.ok ? 'ok' : 'ng';
+    const ico = a.ok ? '✅' : '❌';
+    html += `<div class="chk-item ${cls}">
+      <span class="chk-icon">${ico}</span>
+      <span class="chk-name">${escHtml(a.name)}</span>
+      <span class="chk-detail">${escHtml(a.detail)}</span>
+    </div>`;
+  });
+  if(areas.length === 0) html += '<div style="font-size:11px;color:var(--sub);padding:4px 0">面積要件なし（または未配置）</div>';
+
+  // 建蔽率・容積率・延床
+  const faItems = [
+    floor.coverageLimit ? {
+      label: `建蔽率 ${floor.coverageRate.toFixed(1)}% ／ 上限 ${floor.coverageLimit}%`,
+      ok: floor.coverageOk
+    } : null,
+    floor.farLimit ? {
+      label: `容積率 ${floor.farRate.toFixed(1)}% ／ 上限 ${floor.farLimit}%`,
+      ok: floor.farOk
+    } : null,
+    floor.targetArea ? {
+      label: `延床 ${floor.totalFloorM2.toFixed(1)}㎡ ／ 目標 ${floor.targetArea}㎡程度`,
+      ok: floor.targetOk
+    } : null,
+  ].filter(Boolean);
+
+  faItems.forEach(fi => {
+    const cls = fi.ok ? 'ok' : 'ng';
+    const ico = fi.ok ? '✅' : '❌';
+    html += `<div class="chk-item ${cls}">
+      <span class="chk-icon">${ico}</span>
+      <span class="chk-name" style="font-size:11px;">${escHtml(fi.label)}</span>
+    </div>`;
+  });
+  html += '</div>';
+
+  // ── 敷地内収まり ─────────────────────────
+  html += `<div class="chk-section">
+    <div class="chk-section-title">③ 敷地内収まり &nbsp;
+      <span style="font-weight:normal;color:${boundsOk?'#81C784':'#EF9A9A'}">${boundsOk?'問題なし':bounds.length+'件はみ出し'}</span>
+    </div>`;
+  if(boundsOk) {
+    html += `<div class="chk-item ok"><span class="chk-icon">✅</span><span class="chk-name">全室が敷地内に収まっています</span></div>`;
+  } else {
+    bounds.forEach(name => {
+      html += `<div class="chk-item ng"><span class="chk-icon">❌</span><span class="chk-name">${escHtml(name)}</span><span class="chk-detail">敷地外にはみ出し</span></div>`;
+    });
+  }
+  html += '</div>';
+
+  // ── 総合判定 ─────────────────────────────
+  const vCls  = allOk ? 'pass' : anyFail ? 'fail' : 'warn';
+  const vText = allOk ? '✅ 合格基準を満たしています' : anyFail ? '❌ 要修正の項目があります' : '⚠️ 確認が必要な項目があります';
+  html += `<div class="chk-verdict ${vCls}">${vText}</div>`;
+
+  document.getElementById('check-modal-body').innerHTML = html;
+  document.getElementById('check-modal-overlay').style.display = 'flex';
+}
+
+/** チェックリストドロワーにボタン表示切替 */
+function updateSysCheckBtn() {
+  const wrap = document.getElementById('sys-check-btn-wrap');
+  if(!wrap) return;
+  const hasProblem = document.querySelectorAll('#req-list .req-item').length > 0;
+  wrap.style.display = hasProblem ? 'block' : 'none';
+}
+
+document.getElementById('sys-check-btn').onclick = runSystemCheck;
+
+// ======================================================
+// SAVE / LOAD (localStorage)
+// ======================================================
+const ESKISU_SAVE_KEY = 'eskisu_saves';
+const MAX_SAVES = 20;
+
+function getAllSaves() {
+  try { return JSON.parse(localStorage.getItem(ESKISU_SAVE_KEY) || '[]'); }
+  catch(e) { return []; }
+}
+
+function getCurrentProblemInfo() {
+  try {
+    const sp = localStorage.getItem('selectedProblem');
+    if(sp) { const p = JSON.parse(sp); return {id:p.id, title:p.title}; }
+  } catch(e) {}
+  return {id:null, title:null};
+}
+
+function saveCurrentWork(title) {
+  const saves = getAllSaves();
+  const prob  = getCurrentProblemInfo();
+  const entry = {
+    id: Date.now().toString(),
+    title: title || 'エスキス',
+    savedAt: new Date().toISOString(),
+    problemId: prob.id,
+    problemTitle: prob.title,
+    rooms: JSON.parse(JSON.stringify(state.rooms)),
+    walls: JSON.parse(JSON.stringify(state.walls)),
+    site:  JSON.parse(JSON.stringify(state.site)),
+  };
+  saves.unshift(entry);
+  if(saves.length > MAX_SAVES) saves.pop();
+  localStorage.setItem(ESKISU_SAVE_KEY, JSON.stringify(saves));
+  return entry;
+}
+
+function loadSavedWork(id) {
+  const entry = getAllSaves().find(s => s.id === id);
+  if(!entry) return;
+  state.rooms    = entry.rooms || [];
+  state.walls    = entry.walls || [];
+  if(entry.site) state.site = {...state.site, ...entry.site};
+  state.selected = null;
+  saveHistory();
+  fitViewToSite();
+  render(); updateAreaOverlay(); refreshChecklistBadge();
+  closeSavePanel();
+  showSnack(`「${entry.title}」をロードしました`);
+}
+
+function deleteSave(id) {
+  const saves = getAllSaves().filter(s => s.id !== id);
+  localStorage.setItem(ESKISU_SAVE_KEY, JSON.stringify(saves));
+  renderSaveList();
+}
+
+function renderSaveList() {
+  const saves = getAllSaves();
+  const list  = document.getElementById('save-list');
+  if(!list) return;
+  if(saves.length === 0) {
+    list.innerHTML = '<p style="color:var(--sub);font-size:11px;text-align:center;padding:16px 0">保存されたエスキスはありません</p>';
+    return;
+  }
+  list.innerHTML = saves.map(s => {
+    const dt = new Date(s.savedAt);
+    const ds = `${dt.getFullYear()}/${dt.getMonth()+1}/${dt.getDate()} ${dt.getHours()}:${String(dt.getMinutes()).padStart(2,'0')}`;
+    const sub = s.problemTitle ? `${ds} · ${escHtml(s.problemTitle)}` : ds;
+    return `<div class="save-item" data-save-id="${escHtml(s.id)}">
+      <div class="save-item-info">
+        <div class="save-item-title">${escHtml(s.title)}</div>
+        <div class="save-item-meta">${sub}</div>
+      </div>
+      <div class="save-item-actions">
+        <button class="btn btn-p save-load-btn" style="padding:5px 10px;font-size:11px;" data-action="load" data-id="${escHtml(s.id)}">ロード</button>
+        <button class="btn btn-d save-del-btn" style="padding:5px 8px;font-size:11px;" data-action="delete" data-id="${escHtml(s.id)}">削除</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openSavePanel() {
+  const prob = getCurrentProblemInfo();
+  const now  = new Date();
+  const ds   = `${now.getMonth()+1}/${now.getDate()} ${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')}`;
+  document.getElementById('save-title-input').value =
+    prob.title ? `${prob.title} ${ds}` : `エスキス ${ds}`;
+  renderSaveList();
+  document.getElementById('save-panel').classList.add('open');
+  document.getElementById('overlay-blocker').classList.add('show');
+}
+
+function closeSavePanel() {
+  document.getElementById('save-panel').classList.remove('open');
+  // overlay-blocker は他パネルが開いていなければ非表示に
+  const anyOpen = ['room-panel','cond-panel'].some(id =>
+    document.getElementById(id).classList.contains('open'));
+  if(!anyOpen) document.getElementById('overlay-blocker').classList.remove('show');
+}
+
+function exportImage() {
+  const offscreen = document.createElement('canvas');
+  offscreen.width  = canvas.width;
+  offscreen.height = canvas.height;
+  const oc = offscreen.getContext('2d');
+  oc.fillStyle = '#f5f0e8';
+  oc.fillRect(0,0,offscreen.width,offscreen.height);
+  oc.drawImage(canvas, 0,0);
+  const link = document.createElement('a');
+  link.download = `esquisse_${Date.now()}.png`;
+  link.href = offscreen.toDataURL('image/png');
+  link.click();
+  showSnack('画像を書き出しました');
+}
+
+document.getElementById('store-btn').onclick = openSavePanel;
+document.getElementById('do-save-btn').onclick = () => {
+  const title = document.getElementById('save-title-input').value.trim() || 'エスキス';
+  saveCurrentWork(title);
+  renderSaveList();
+  showSnack(`「${title}」を保存しました`);
+};
+document.getElementById('do-img-btn').onclick = exportImage;
+
+// 保存リストのボタン（delegated listener でXSS対策）
+document.getElementById('save-list').addEventListener('click', e => {
+  const btn = e.target.closest('[data-action]');
+  if(!btn) return;
+  const id = btn.dataset.id;
+  if(btn.dataset.action === 'load') {
+    loadSavedWork(id);
+  } else if(btn.dataset.action === 'delete') {
+    if(confirm('このエスキスを削除しますか？')) deleteSave(id);
+  }
+});
+
+// Guide line
+document.getElementById('guide-btn').onclick = () => {
+  const cH = canvasWrap.clientHeight;
+  const centerY = (cH / 2 - state.view.oy) / state.view.scale;
+  state.guides.push({id: ++guideCounter, y: snap(centerY)});
+  render();
+  showSnack('ガイドラインを追加しました（ドラッグで移動・✕で削除）');
+};
+
+// Clear all
+document.getElementById('clear-btn').onclick = () => {
+  if(!confirm('全ての描画を消去しますか？')) return;
+  saveHistory();
+  state.walls = []; state.rooms = []; state.selected = null; state.drawing = null;
+  render(); updateAreaOverlay();
+};
+
+// Undo / Redo
+document.getElementById('undo-btn').onclick = undo;
+document.getElementById('redo-btn').onclick = redo;
+
+// ======================================================
+// UTILITIES
+// ======================================================
+function fmtMm(mm) {
+  const m = Math.abs(mm);
+  if(m >= 1000) return (m/1000).toFixed(2).replace(/0+$/,'').replace(/\.$/,'') + 'm';
+  return Math.round(m) + 'mm';
+}
+
+function hexAlpha(hex, alpha) {
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function darken(hex) {
+  const r = Math.max(0,parseInt(hex.slice(1,3),16)-60);
+  const g = Math.max(0,parseInt(hex.slice(3,5),16)-60);
+  const b = Math.max(0,parseInt(hex.slice(5,7),16)-60);
+  return `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
+}
+
+function var_accent() { return '#6495ED'; }
+
+let snackTimer;
+function showSnack(msg) {
+  const el = document.getElementById('snack');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(snackTimer);
+  snackTimer = setTimeout(()=>el.classList.remove('show'), 2000);
+}
+
+const dimtip = document.getElementById('dimtip');
+function showDimTip(px, py, text) {
+  dimtip.style.display = 'block';
+  dimtip.style.left = (px+10)+'px';
+  dimtip.style.top  = (py-24)+'px';
+  dimtip.textContent = text;
+}
+function hideDimTip() { dimtip.style.display='none'; }
+function updateDimTip(px, py) {
+  if(state.tool==='wall'||state.tool==='room') {
+    const m = s2mm_snap(px, py);
+    const p = mmToScreen(m.x, m.y);
+    // show snap position
+    if(!pointer.down) {
+      dimtip.style.display='block';
+      dimtip.style.left=(p.x+10)+'px';
+      dimtip.style.top=(p.y-20)+'px';
+      dimtip.textContent=`${fmtMm(m.x)}, ${fmtMm(m.y)}`;
+    }
+  } else hideDimTip();
+}
+
+// ======================================================
+// INIT
+// ======================================================
+function init() {
+  canvas = document.getElementById('canvas');
+  ctx = canvas.getContext('2d');
+  canvasWrap = document.getElementById('canvas-wrap');
+
+  // canvas イベントリスナーをここで登録
+  canvas.addEventListener('mousedown', onDown);
+  canvas.addEventListener('mousemove', onMove);
+  canvas.addEventListener('mouseup', onUp);
+  canvas.addEventListener('mouseleave', onUp);
+  canvas.addEventListener('wheel', onWheel, {passive:false});
+  canvas.addEventListener('touchstart', onTouchStart, {passive:false});
+  canvas.addEventListener('touchmove', onTouchMove, {passive:false});
+  canvas.addEventListener('touchend', onTouchEnd, {passive:false});
+  canvas.addEventListener('click', onClick);
+
+  buildRoomTypeGrid();
+  resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
+
+  // Center view on site
+  fitViewToSite();
+
+  // index.html のマイエスキスからロード要求があれば優先
+  const loadSaveId = localStorage.getItem('load_save_id');
+  if(loadSaveId) {
+    localStorage.removeItem('load_save_id');
+    const entry = getAllSaves().find(s => s.id === loadSaveId);
+    if(entry) {
+      state.rooms = entry.rooms || [];
+      state.walls = entry.walls || [];
+      if(entry.site) state.site = {...state.site, ...entry.site};
+      fitViewToSite();
+      saveHistory();
+      render(); updateAreaOverlay(); refreshChecklistBadge();
+      showSnack(`「${entry.title}」をロードしました`);
+      return;
+    }
+  }
+
+  // localStorage から選択された課題を読み込む
+  const savedProblem = localStorage.getItem('selectedProblem');
+  if(savedProblem) {
+    try {
+      loadProblem(JSON.parse(savedProblem));
+    } catch(e) { /* ignore */ }
+  }
+
+  saveHistory(); // initial state
+  render();
+  updateZoomInfo();
+  updateAreaOverlay();
+  refreshChecklistBadge();
+  const pname = savedProblem ? JSON.parse(savedProblem).title : null;
+  showSnack(pname ? `📋 ${pname}` : '👆 壁・線ツールで描画開始、部屋ツールで部屋を配置');
+}
+
+function loadProblem(p) {
+  // 敷地サイズ
+  if(p.siteW) state.site.w = p.siteW;
+  if(p.siteH) state.site.h = p.siteH;
+
+  // フォームに反映
+  if(p.title)          document.getElementById('c-title').value      = p.title;
+  if(p.structure)      document.getElementById('c-struct').value     = p.structure;
+  if(p.siteW)          document.getElementById('c-site-w').value     = p.siteW;
+  if(p.siteH)          document.getElementById('c-site-d').value     = p.siteH;
+  if(p.floorArea)      document.getElementById('c-floor-area').value = p.floorArea;
+  if(p.coverage!=null) document.getElementById('c-coverage').value   = p.coverage;
+  if(p.far!=null)      document.getElementById('c-far').value        = p.far;
+  if(p.notes!=null)    document.getElementById('c-notes').value      = p.notes;
+  if(p.zoning) {
+    const zEl = document.getElementById('c-zoning');
+    if(zEl) zEl.value = p.zoning;
+  }
+
+  // 敷地隣接
+  if(p.siteAdj) {
+    ['N','S','E','W'].forEach(d => {
+      const a = p.siteAdj[d]; if(!a) return;
+      const te = document.querySelector(`.adj-type[data-dir="${d}"]`);
+      const we = document.querySelector(`.adj-width[data-dir="${d}"]`);
+      const ot = document.querySelector(`.adj-opp-type[data-dir="${d}"]`);
+      const ow = document.querySelector(`.adj-opp-width[data-dir="${d}"]`);
+      if(te) te.value = a.type  || '宅地';
+      if(we) we.value = a.width != null ? a.width : '';
+      if(ot && a.opposite)      ot.value = a.opposite;
+      if(ow && a.oppositeWidth) ow.value = a.oppositeWidth;
+      updateOppRowVisibility(d); // 道路のときだけ対面行を表示
+    });
+  }
+  drawSiteDiagram(); // siteW/siteH・隣接情報を更新した後に描画
+
+  // 要求室リスト
+  if(p.reqRooms && p.reqRooms.length) {
+    document.getElementById('req-list').innerHTML = '';
+    reqCounter = 0;
+    p.reqRooms.forEach(r => addReqRow(r.name || '', r.floor || 'どちらでも', r.area || '', r.notes || []));
+  }
+
+  // 外構条件
+  if(p.exteriorConds && p.exteriorConds.length) {
+    document.getElementById('ext-list').innerHTML = '';
+    extCounter = 0;
+    p.exteriorConds.forEach(e => addExtRow(e.type || '駐車場', e.note || ''));
+  }
+
+  // パネルをロック（課題選択時）
+  document.getElementById('cond-panel').classList.add('locked');
+
+  // ビューを敷地にフィット
+  fitViewToSite();
+
+  // チェックリストを更新
+  setTimeout(refreshChecklistBadge, 50); // DOM反映を待つ
+}
+
+// スクリプトはbody末尾にあるのでDOMは確実に構築済み
+init();
+</script>
+</body>
+</html>

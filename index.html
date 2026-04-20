@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#1a1a1a">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;700;900&family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
+  <title>エスキスアプリ — 課題選択</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+    :root{
+      --bg:      #ebe7dc;
+      --surface: #faf7f0;
+      --ink:     #1a1a1a;
+      --inkSoft: #555555;
+      --rule:    #d4cfc0;
+      --red:     #d3312a;
+      --blue:    #2952c8;
+      --yellow:  #f5c518;
+    }
+    body{
+      background:var(--bg);color:var(--ink);min-height:100dvh;
+      font-family:'Noto Sans JP',sans-serif;
+      padding-bottom:env(safe-area-inset-bottom, 0px);
+    }
+
+    /* ── HEADER ─────────────────────────── */
+    .header{
+      background:var(--ink);color:var(--surface);
+      padding:0;position:relative;overflow:hidden;
+    }
+    /* 装飾幾何学 */
+    .header-deco-circle{
+      position:absolute;top:-20px;right:-20px;
+      width:80px;height:80px;border-radius:50%;
+      background:var(--yellow);
+    }
+    .header-deco-square{
+      position:absolute;bottom:-10px;right:48px;
+      width:28px;height:28px;
+      background:var(--red);
+    }
+    .header-inner{
+      position:relative;padding:28px 20px 24px;
+    }
+    .header-label{
+      font-family:'Archivo','Noto Sans JP',sans-serif;
+      font-size:10px;font-weight:700;
+      color:var(--yellow);letter-spacing:.2em;
+      margin-bottom:6px;
+    }
+    .header-title{
+      font-family:'Archivo','Noto Sans JP',sans-serif;
+      font-size:28px;font-weight:900;color:var(--surface);
+      letter-spacing:.02em;line-height:1.1;margin-bottom:4px;
+    }
+    .header-sub{
+      font-size:11px;color:#aaa;line-height:1.6;
+    }
+
+    /* カウントダウン */
+    .countdown-block{
+      background:var(--ink);
+      border-top:2px solid var(--yellow);
+      padding:16px 20px;
+      display:flex;align-items:baseline;gap:6px;
+    }
+    .countdown-num{
+      font-family:'Archivo','Noto Sans JP',sans-serif;
+      font-size:64px;font-weight:900;line-height:1;
+      letter-spacing:-.04em;color:var(--surface);
+    }
+    .countdown-unit{
+      font-size:18px;font-weight:700;color:#ccc;
+    }
+    .countdown-meta{
+      margin-left:auto;text-align:right;
+    }
+    .countdown-meta-label{
+      font-family:'Archivo',sans-serif;
+      font-size:9px;font-weight:700;
+      color:var(--yellow);letter-spacing:.15em;
+      display:block;margin-bottom:4px;
+    }
+    .countdown-meta-date{
+      font-family:'Archivo',sans-serif;
+      font-size:11px;font-weight:500;color:#999;
+    }
+
+    /* ── SECTION HEADING ─────────────────── */
+    .section{padding:24px 16px 0;}
+    .section-head{margin-bottom:16px;}
+    .section-head-row{
+      display:flex;align-items:center;gap:10px;margin-bottom:8px;
+    }
+    .section-num{
+      font-family:'Archivo','Noto Sans JP',sans-serif;
+      font-size:11px;font-weight:700;
+      color:var(--ink);letter-spacing:.15em;
+    }
+    .section-rule{flex:1;height:2px;background:var(--ink);}
+    .section-title{
+      font-family:'Noto Sans JP',sans-serif;
+      font-size:20px;font-weight:900;
+      color:var(--ink);letter-spacing:.02em;line-height:1.1;
+    }
+
+    /* ── FREE MODE CARD ──────────────────── */
+    .free-card{
+      display:grid;grid-template-columns:4px 1fr auto;
+      gap:0;
+      background:var(--surface);
+      border:2px solid var(--ink);
+      padding:0;cursor:pointer;
+      text-decoration:none;color:inherit;
+      transition:opacity .15s;
+      margin-bottom:8px;
+    }
+    .free-card:active{opacity:.7;}
+    .free-card-accent{background:var(--blue);}
+    .free-card-body{
+      padding:16px 14px;
+      display:flex;align-items:center;gap:14px;
+    }
+    .free-card-icon-wrap{
+      width:40px;height:40px;background:var(--blue);
+      display:flex;align-items:center;justify-content:center;
+      flex-shrink:0;font-size:20px;
+    }
+    .free-card-text h3{
+      font-size:15px;font-weight:700;color:var(--ink);margin-bottom:3px;
+    }
+    .free-card-text p{font-size:11px;color:var(--inkSoft);line-height:1.5;}
+    .free-card-arrow{
+      padding:0 16px;
+      display:flex;align-items:center;
+      font-family:'Archivo',sans-serif;
+      font-size:20px;font-weight:700;color:var(--ink);
+      border-left:2px solid var(--ink);
+    }
+
+    /* ── PROBLEM CARD ────────────────────── */
+    .problem-list{display:flex;flex-direction:column;gap:0;padding-bottom:32px;}
+    .problem-card{
+      background:var(--surface);
+      border:2px solid var(--ink);
+      border-bottom:none;
+      overflow:hidden;cursor:pointer;
+      transition:opacity .15s;
+    }
+    .problem-card:last-child{border-bottom:2px solid var(--ink);}
+    .problem-card:active{opacity:.75;}
+
+    .problem-card-header{
+      display:grid;grid-template-columns:60px 1fr;gap:0;
+      border-bottom:2px solid var(--ink);
+    }
+    .problem-num-block{
+      background:var(--ink);color:var(--yellow);
+      display:flex;align-items:center;justify-content:center;
+      font-family:'Archivo','Noto Sans JP',sans-serif;
+      font-size:22px;font-weight:900;
+      border-right:2px solid var(--ink);
+      position:relative;
+    }
+    .problem-num-deco{
+      position:absolute;top:-5px;right:-5px;
+      width:14px;height:14px;border-radius:50%;
+    }
+    .problem-header-right{
+      padding:12px 14px 10px;
+    }
+    .problem-card-tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;}
+    .tag{
+      font-size:10px;font-weight:700;padding:2px 8px;
+      letter-spacing:.08em;
+    }
+    .tag-diff-beginner{background:var(--blue);color:#fff;}
+    .tag-diff-inter{background:var(--yellow);color:var(--ink);}
+    .tag-diff-advanced{background:var(--red);color:#fff;}
+    .tag-struct{background:var(--ink);color:var(--surface);}
+    .problem-title{
+      font-family:'Noto Sans JP',sans-serif;
+      font-size:16px;font-weight:900;color:var(--ink);
+    }
+    .problem-desc{font-size:11px;color:var(--inkSoft);margin-top:4px;line-height:1.5;}
+
+    .problem-card-body{
+      padding:10px 14px 12px;
+      display:grid;grid-template-columns:1fr 1fr;gap:8px;
+      border-bottom:1px solid var(--rule);
+    }
+    .info-item{display:flex;flex-direction:column;gap:2px;}
+    .info-label{
+      font-family:'Archivo',sans-serif;
+      font-size:9px;font-weight:700;color:var(--inkSoft);letter-spacing:.1em;text-transform:uppercase;
+    }
+    .info-value{font-size:12px;color:var(--ink);font-weight:700;}
+
+    .problem-card-rooms{
+      padding:8px 14px;
+      display:flex;flex-wrap:wrap;gap:4px;
+      border-bottom:1px solid var(--rule);
+    }
+    .room-chip{
+      font-size:10px;
+      border:1px solid var(--ink);
+      padding:2px 7px;color:var(--inkSoft);
+    }
+
+    .problem-card-footer{
+      padding:10px 14px;
+      display:flex;align-items:center;justify-content:space-between;
+    }
+    .problem-no{
+      font-family:'Archivo',sans-serif;
+      font-size:10px;font-weight:700;color:var(--inkSoft);letter-spacing:.05em;
+    }
+
+    /* ── MY ESKISU ───────────────────────── */
+    .my-eskisu-list{display:flex;flex-direction:column;gap:0;padding-bottom:8px;}
+    .my-eskisu-card{
+      display:grid;grid-template-columns:8px 1fr auto;gap:0;
+      background:var(--surface);border:2px solid var(--ink);border-bottom:none;
+      cursor:pointer;text-decoration:none;color:inherit;
+      transition:opacity .15s;
+    }
+    .my-eskisu-card:last-child{border-bottom:2px solid var(--ink);}
+    .my-eskisu-card:active{opacity:.7;}
+    .my-eskisu-card-accent{background:var(--yellow);}
+    .my-eskisu-body{
+      display:flex;align-items:center;gap:10px;
+      padding:12px 12px 12px 14px;
+    }
+    .my-eskisu-info{flex:1;min-width:0;}
+    .my-eskisu-title{
+      font-size:14px;font-weight:700;color:var(--ink);
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    }
+    .my-eskisu-meta{font-size:10px;color:var(--inkSoft);margin-top:3px;}
+    .my-eskisu-arrow{
+      padding:0 14px;
+      display:flex;align-items:center;
+      font-family:'Archivo',sans-serif;
+      font-size:18px;font-weight:700;color:var(--inkSoft);
+      border-left:1px solid var(--rule);
+    }
+    .my-eskisu-empty{
+      font-size:11px;color:var(--inkSoft);text-align:center;
+      padding:16px;background:var(--surface);
+      border:2px dashed var(--rule);
+    }
+
+    .start-btn{
+      background:var(--ink);color:var(--surface);border:none;
+      padding:8px 20px;font-size:12px;font-weight:700;
+      font-family:'Noto Sans JP',sans-serif;
+      letter-spacing:.05em;
+      cursor:pointer;transition:opacity .15s;
+    }
+    .start-btn:active{opacity:.8;}
+
+    /* ── LEARN GRID ──────────────────────── */
+    .learn-grid{
+      display:grid;grid-template-columns:1fr 1fr;
+      border:2px solid var(--ink);
+      margin-bottom:32px;
+    }
+    .learn-card{
+      padding:14px 12px 12px;
+      border-right:2px solid var(--ink);
+      border-bottom:2px solid var(--ink);
+      min-height:140px;
+      display:flex;flex-direction:column;gap:5px;
+      position:relative;
+      background:var(--surface);
+    }
+    /* 偶数列(右列): border-right除去 */
+    .learn-card:nth-child(even){border-right:none;}
+    /* 最終行2枚: border-bottom除去 */
+    .learn-card:nth-last-child(-n+2){border-bottom:none;}
+    /* 準備中: opacity */
+    .learn-card.is-coming{opacity:.55;cursor:default;}
+    /* 実装済み: クリック可 */
+    .learn-card.is-ready{cursor:pointer;}
+    .learn-card.is-ready:active{opacity:.75;}
+
+    .learn-card-num{
+      font-family:'Archivo','Noto Sans JP',sans-serif;
+      font-size:9px;font-weight:700;color:var(--inkSoft);letter-spacing:.15em;
+    }
+    .learn-card-icon{font-size:22px;line-height:1;margin:2px 0;}
+    .learn-card-title{
+      font-family:'Noto Sans JP',sans-serif;
+      font-size:13px;font-weight:900;color:var(--ink);
+    }
+    .learn-card-subs{
+      font-size:10px;color:var(--inkSoft);line-height:1.6;
+      flex:1;
+    }
+    .learn-badge{
+      display:inline-block;
+      font-size:9px;font-weight:700;
+      padding:2px 7px;letter-spacing:.08em;
+      margin-top:4px;align-self:flex-start;
+    }
+    .learn-badge-ready{background:var(--blue);color:#fff;}
+    .learn-badge-coming{background:#ccc;color:#555;}
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-deco-circle"></div>
+  <div class="header-deco-square"></div>
+  <div class="header-inner">
+    <div class="header-label">ARCHITECTURE SKETCH APP</div>
+    <div class="header-title">エスキス<br>アプリ</div>
+    <div class="header-sub">製図試験 独学ポータル</div>
+  </div>
+  <div class="countdown-block">
+    <div class="countdown-num" id="countdown-num">—</div>
+    <div class="countdown-unit">日</div>
+    <div class="countdown-meta">
+      <span class="countdown-meta-label">COUNTDOWN</span>
+      <span class="countdown-meta-date">令和八年度 製図試験まで</span>
+    </div>
+  </div>
+</div>
+
+<!-- マイエスキス -->
+<div class="section" id="my-section" style="display:none;">
+  <div class="section-head">
+    <div class="section-head-row">
+      <span class="section-num">01</span>
+      <div class="section-rule"></div>
+    </div>
+    <div class="section-title">マイエスキス</div>
+  </div>
+  <div class="my-eskisu-list" id="my-eskisu-list"></div>
+</div>
+
+<!-- 学習コンテンツ -->
+<div class="section">
+  <div class="section-head">
+    <div class="section-head-row">
+      <span class="section-num">02</span>
+      <div class="section-rule"></div>
+    </div>
+    <div class="section-title">学習コンテンツ</div>
+  </div>
+  <div class="learn-grid">
+    <!-- 01 エスキス練習 -->
+    <div class="learn-card is-ready" onclick="document.getElementById('problem-section').scrollIntoView({behavior:'smooth'})">
+      <div class="learn-card-num">01</div>
+      <div class="learn-card-icon">✏️</div>
+      <div class="learn-card-title">エスキス練習</div>
+      <div class="learn-card-subs">課題選択 / 自由練習 / システムチェック</div>
+      <span class="learn-badge learn-badge-ready">実装済み</span>
+    </div>
+    <!-- 02 フラッシュカード -->
+    <div class="learn-card is-coming">
+      <div class="learn-card-num">02</div>
+      <div class="learn-card-icon">🃏</div>
+      <div class="learn-card-title">フラッシュカード</div>
+      <div class="learn-card-subs">高さ関係 / 部屋の標準寸法 / 最低必要面積</div>
+      <span class="learn-badge learn-badge-coming">準備中</span>
+    </div>
+    <!-- 03 解き方 Tips -->
+    <div class="learn-card is-coming">
+      <div class="learn-card-num">03</div>
+      <div class="learn-card-icon">💡</div>
+      <div class="learn-card-title">解き方 Tips</div>
+      <div class="learn-card-subs">910mmの単位感覚 / エスキスの進め方</div>
+      <span class="learn-badge learn-badge-coming">準備中</span>
+    </div>
+    <!-- 04 計算トレーニング -->
+    <div class="learn-card is-coming">
+      <div class="learn-card-num">04</div>
+      <div class="learn-card-icon">🔢</div>
+      <div class="learn-card-title">計算トレーニング</div>
+      <div class="learn-card-subs">スロープ長さ計算 / 面積 ↔ マス換算</div>
+      <span class="learn-badge learn-badge-coming">準備中</span>
+    </div>
+    <!-- 05 法規コラム -->
+    <div class="learn-card is-coming">
+      <div class="learn-card-num">05</div>
+      <div class="learn-card-icon">📖</div>
+      <div class="learn-card-title">法規コラム</div>
+      <div class="learn-card-subs">道路斜線 / 北側高さ制限 / 延焼ライン / 階段+収納</div>
+      <span class="learn-badge learn-badge-coming">準備中</span>
+    </div>
+    <!-- 06 詳細図トレーニング -->
+    <div class="learn-card is-coming">
+      <div class="learn-card-num">06</div>
+      <div class="learn-card-icon">📐</div>
+      <div class="learn-card-title">詳細図</div>
+      <div class="learn-card-subs">矩計図 / 部分詳細図</div>
+      <span class="learn-badge learn-badge-coming">準備中</span>
+    </div>
+  </div>
+</div>
+
+<!-- フリーモード -->
+<div class="section">
+  <div class="section-head">
+    <div class="section-head-row">
+      <span class="section-num">03</span>
+      <div class="section-rule"></div>
+    </div>
+    <div class="section-title">フリーモード</div>
+  </div>
+  <a class="free-card" href="app.html" onclick="clearProblem()">
+    <div class="free-card-accent"></div>
+    <div class="free-card-body">
+      <div class="free-card-icon-wrap">✏️</div>
+      <div class="free-card-text">
+        <h3>自由練習</h3>
+        <p>課題なしで自由にエスキスを練習できます</p>
+      </div>
+    </div>
+    <div class="free-card-arrow">›</div>
+  </a>
+</div>
+
+<!-- 課題一覧 -->
+<div class="section" id="problem-section">
+  <div class="section-head">
+    <div class="section-head-row">
+      <span class="section-num">04</span>
+      <div class="section-rule"></div>
+    </div>
+    <div class="section-title">課題を選ぶ</div>
+  </div>
+  <div class="problem-list" id="problem-list"></div>
+</div>
+
+<script>
+let PROBLEMS = [];
+
+function escHtml(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// カウントダウン計算
+(function() {
+  const examDate = new Date('2026-09-20T00:00:00+09:00');
+  const now = new Date();
+  const diff = Math.ceil((examDate - now) / (1000 * 60 * 60 * 24));
+  const el = document.getElementById('countdown-num');
+  if(el) el.textContent = diff > 0 ? diff : '0';
+})();
+
+// problems.json から課題データを取得
+fetch('problems.json')
+  .then(r => { if(!r.ok) throw new Error(r.status); return r.json(); })
+  .then(data => { PROBLEMS = data; renderProblems(); })
+  .catch(() => {
+    document.getElementById('problem-list').innerHTML =
+      '<p style="color:#888;padding:20px 0;text-align:center;">課題データを読み込めませんでした。</p>';
+  });
+
+function clearProblem() {
+  localStorage.removeItem('selectedProblem');
+}
+
+// ── マイエスキス ──────────────────────────
+function renderMyEskisu() {
+  const SAVE_KEY = 'eskisu_saves';
+  let saves = [];
+  try { saves = JSON.parse(localStorage.getItem(SAVE_KEY) || '[]'); } catch(e) {}
+  const sec  = document.getElementById('my-section');
+  const list = document.getElementById('my-eskisu-list');
+  if(!saves.length) { sec.style.display = 'none'; return; }
+  sec.style.display = 'block';
+  list.innerHTML = saves.slice(0, 5).map(s => {
+    const dt  = new Date(s.savedAt);
+    const ds  = `${dt.getFullYear()}/${dt.getMonth()+1}/${dt.getDate()} ${dt.getHours()}:${String(dt.getMinutes()).padStart(2,'0')}`;
+    const sub = s.problemTitle ? `${ds}  ·  ${escHtml(s.problemTitle)}` : ds;
+    return `<div class="my-eskisu-card" data-save-id="${escHtml(s.id)}">
+      <div class="my-eskisu-card-accent"></div>
+      <div class="my-eskisu-body">
+        <div class="my-eskisu-info">
+          <div class="my-eskisu-title">${escHtml(s.title)}</div>
+          <div class="my-eskisu-meta">${sub}  ·  ${s.rooms?.length ?? 0}室</div>
+        </div>
+      </div>
+      <div class="my-eskisu-arrow">›</div>
+    </div>`;
+  }).join('');
+  if(saves.length > 5) {
+    list.innerHTML += `<div class="my-eskisu-empty" style="cursor:default;">他 ${saves.length - 5} 件はアプリ内の保存/ロードから確認できます</div>`;
+  }
+  // delegated listener（renderMyEskisu 呼び出しごとに重複しないよう管理）
+  list.onclick = e => {
+    const card = e.target.closest('[data-save-id]');
+    if(card) loadMyEskisu(card.dataset.saveId);
+  };
+}
+
+function loadMyEskisu(id) {
+  localStorage.setItem('load_save_id', id);
+  localStorage.removeItem('selectedProblem');
+  location.href = 'app.html';
+}
+
+renderMyEskisu();
+
+function startProblem(id) {
+  const p = PROBLEMS.find(p => p.id === id);
+  localStorage.setItem('selectedProblem', JSON.stringify(p));
+  location.href = 'app.html';
+}
+
+const diffClass = {
+  '基礎': 'tag-diff-beginner',
+  '応用': 'tag-diff-inter',
+  '発展': 'tag-diff-advanced',
+};
+
+/* Bauhaus accent colors cycled per card */
+const accentColors = ['#f5c518', '#d3312a', '#2952c8'];
+
+function renderProblems() {
+  const list = document.getElementById('problem-list');
+  list.innerHTML = PROBLEMS.map((p, i) => {
+    const accent = accentColors[i % accentColors.length];
+    return `
+    <div class="problem-card" onclick="startProblem(${p.id})">
+      <div class="problem-card-header">
+        <div class="problem-num-block">
+          ${String(i+1).padStart(2,'0')}
+          <div class="problem-num-deco" style="background:${accent}"></div>
+        </div>
+        <div class="problem-header-right">
+          <div class="problem-card-tags">
+            <span class="tag ${diffClass[p.difficulty] || 'tag-diff-inter'}">${p.difficulty}</span>
+            <span class="tag tag-struct">${p.structure}</span>
+          </div>
+          <div class="problem-title">${escHtml(p.title)}</div>
+          <div class="problem-desc">${escHtml(p.desc)}</div>
+        </div>
+      </div>
+      <div class="problem-card-body">
+        <div class="info-item">
+          <span class="info-label">SITE SIZE</span>
+          <span class="info-value">${(p.siteW/1000).toFixed(1)}m × ${(p.siteH/1000).toFixed(1)}m</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">FLOOR AREA</span>
+          <span class="info-value">${p.floorArea}㎡程度</span>
+        </div>
+      </div>
+      <div class="problem-card-rooms">
+        ${p.reqRooms.map(r => `<span class="room-chip">${escHtml(r.name)}</span>`).join('')}
+      </div>
+      <div class="problem-card-footer">
+        <span class="problem-no">NO.${String(i+1).padStart(2,'0')}</span>
+        <button class="start-btn" onclick="event.stopPropagation();startProblem(${p.id})">始める ›</button>
+      </div>
+    </div>
+  `}).join('');
+}
+
+</script>
+</body>
+</html>
