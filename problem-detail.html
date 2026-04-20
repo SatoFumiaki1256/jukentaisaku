@@ -251,17 +251,22 @@ const params = new URLSearchParams(location.search);
 const problemId = params.get('id');
 if(!problemId){ location.href='index.html'; }
 
-fetch('problems.json')
+// キャッシュバスターを付けて常に最新を取得
+fetch('problems.json?v=' + (window._PV||(window._PV=Date.now())), {cache:'no-store'})
   .then(r=>r.json())
   .then(data=>{
     const p = data.find(x=>String(x.id)===String(problemId));
-    if(!p){ document.getElementById('loading').style.display='none'; document.getElementById('error').style.display=''; return; }
+    if(!p){
+      document.getElementById('loading').style.display='none';
+      document.getElementById('error').style.display='block';
+      return;
+    }
     problem = p;
     renderProblem(p);
   })
   .catch(()=>{
     document.getElementById('loading').style.display='none';
-    document.getElementById('error').style.display='';
+    document.getElementById('error').style.display='block';
   });
 
 function renderProblem(p) {
