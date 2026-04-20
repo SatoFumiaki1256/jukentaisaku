@@ -2519,7 +2519,7 @@ function onDown(e) {
 
   // ① 選択済みオブジェクトのハンドル or 本体ドラッグを即時開始
   // 編集ツール時はドラッグを開始しない（タップのみでモーダルを開く）
-  if(state.selected && state.selected.kind === 'wall' && state.tool !== 'select' && state.tool !== 'wall') {
+  if(state.selected && state.selected.kind === 'wall' && state.tool !== 'select') {
     const w = state.walls.find(w => w.id === state.selected.id);
     if(w) {
       const ep = getWallEndpointAt(pos.x, pos.y, w);
@@ -2588,21 +2588,23 @@ function onDown(e) {
   }
 
   // ③ 長押し → 部屋・壁のドラッグ移動（wallモード以外）
-  if(state.tool !== 'wall') longPressTimer = setTimeout(() => {
+  longPressTimer = setTimeout(() => {
     longPressFired = true;
     longPressTimer = null;
     const lx = pointer.lastX, ly = pointer.lastY;
     const m = screenToMm(lx, ly);
-    // 部屋チェック
-    for(let i = state.rooms.length - 1; i >= 0; i--) {
-      const r = state.rooms[i];
-      if(m.x >= r.x && m.x <= r.x+r.w && m.y >= r.y && m.y <= r.y+r.h) {
-        state.drawing = null;
-        dragState = {mode:'move', roomId:r.id,
-          startPx:lx, startPy:ly, origX:r.x, origY:r.y};
-        state.selected = {kind:'room', id:r.id};
-        if(navigator.vibrate) navigator.vibrate(40);
-        render(); return;
+    // 部屋チェック（wallモード中は無効）
+    if(state.tool !== 'wall') {
+      for(let i = state.rooms.length - 1; i >= 0; i--) {
+        const r = state.rooms[i];
+        if(m.x >= r.x && m.x <= r.x+r.w && m.y >= r.y && m.y <= r.y+r.h) {
+          state.drawing = null;
+          dragState = {mode:'move', roomId:r.id,
+            startPx:lx, startPy:ly, origX:r.x, origY:r.y};
+          state.selected = {kind:'room', id:r.id};
+          if(navigator.vibrate) navigator.vibrate(40);
+          render(); return;
+        }
       }
     }
     // 壁チェック
@@ -3091,8 +3093,8 @@ function switchTool(tool) {
   state.tool = tool;
   state.drawing = null;
   dragState = null;
-  // 壁ドローモードでは選択を解除
-  if(tool === 'wall') state.selected = null;
+  // 壁ドローモードでは部屋の選択のみ解除（壁の選択は維持）
+  if(tool === 'wall' && state.selected?.kind === 'room') state.selected = null;
   document.querySelectorAll('.tbtn').forEach(b => b.classList.remove('active'));
   const btn = document.querySelector(`[data-tool="${tool}"]`);
   if(btn) btn.classList.add('active');
