@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>計算トレーニング — 二級建築士製図</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;700;900&family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+    :root{
+      --bg:     #ebe7dc;
+      --surface:#faf7f0;
+      --ink:    #1a1a1a;
+      --inkSoft:#555555;
+      --rule:   #d4cfc0;
+      --red:    #d3312a;
+      --blue:   #2952c8;
+      --yellow: #f5c518;
+      --green:  #2e7d32;
+    }
+    body{
+      background:var(--bg);color:var(--ink);
+      font-family:'Noto Sans JP','Hiragino Sans',sans-serif;
+      height:100dvh;overflow:hidden;
+      display:flex;flex-direction:column;
+    }
+
+    /* ── TOPBAR ── */
+    #topbar{
+      flex-shrink:0;
+      height:48px;background:var(--ink);
+      display:flex;align-items:center;padding:0 16px;gap:12px;z-index:100;
+    }
+    .back-btn{color:#f0ede6;font-size:18px;cursor:pointer;background:none;border:none;padding:4px;}
+    .topbar-title{font-family:'Archivo',sans-serif;font-size:13px;font-weight:900;color:#f0ede6;letter-spacing:.08em;text-transform:uppercase;}
+    .topbar-score{margin-left:auto;font-size:11px;color:#888;font-weight:700;font-family:'Archivo',sans-serif;}
+
+    /* ── CATEGORY BAR ── */
+    #cat-bar{
+      flex-shrink:0;
+      background:var(--surface);border-bottom:2px solid var(--ink);
+      overflow-x:auto;display:flex;padding:0 12px;scrollbar-width:none;
+    }
+    #cat-bar::-webkit-scrollbar{display:none;}
+    .cat-tab{
+      flex-shrink:0;padding:9px 14px;font-size:11px;font-weight:700;
+      color:var(--inkSoft);cursor:pointer;
+      border-bottom:3px solid transparent;white-space:nowrap;
+      background:none;border-top:none;border-left:none;border-right:none;
+      transition:all .15s;
+    }
+    .cat-tab.active{color:var(--ink);border-bottom-color:var(--ink);}
+
+    /* ── PROBLEM AREA (scrollable top half) ── */
+    #problem-area{
+      flex:1;overflow-y:auto;
+      padding:14px 16px 8px;
+      display:flex;flex-direction:column;gap:10px;
+      min-height:0;
+    }
+
+    /* progress */
+    #prog-row{display:flex;align-items:center;gap:10px;}
+    #prog-bg{flex:1;height:4px;background:var(--rule);border-radius:2px;overflow:hidden;}
+    #prog-bar{height:100%;background:var(--ink);border-radius:2px;transition:width .3s;}
+    #prog-label{font-size:11px;color:var(--inkSoft);font-weight:700;white-space:nowrap;}
+
+    /* problem card */
+    #problem-card{
+      background:var(--surface);border:2px solid var(--ink);
+      padding:16px;flex-shrink:0;
+    }
+    .prob-type-label{
+      font-size:9px;font-weight:900;letter-spacing:.15em;text-transform:uppercase;
+      color:var(--inkSoft);font-family:'Archivo',sans-serif;margin-bottom:10px;
+    }
+    #prob-question{font-size:16px;font-weight:700;line-height:1.7;color:var(--ink);}
+    #prob-hint{
+      font-size:11px;color:var(--blue);margin-top:8px;line-height:1.6;
+      display:none;
+    }
+    #hint-btn{
+      font-size:10px;color:var(--inkSoft);background:none;border:1px solid var(--rule);
+      padding:3px 10px;cursor:pointer;margin-top:8px;
+    }
+
+    /* feedback */
+    #feedback{
+      padding:12px 14px;border:2px solid var(--ink);display:none;
+    }
+    #feedback.correct{background:rgba(46,125,50,.08);border-color:var(--green);}
+    #feedback.incorrect{background:rgba(211,49,42,.08);border-color:var(--red);}
+    .fb-head{font-size:14px;font-weight:900;margin-bottom:6px;}
+    .fb-head.ok{color:var(--green);}
+    .fb-head.ng{color:var(--red);}
+    .fb-formula{font-size:12px;color:var(--ink);line-height:1.8;white-space:pre-wrap;}
+    .fb-formula strong{color:var(--blue);font-weight:900;}
+    #next-btn{
+      width:100%;margin-top:10px;padding:12px;
+      font-size:13px;font-weight:900;
+      background:var(--ink);color:#f0ede6;
+      border:none;cursor:pointer;
+      font-family:'Noto Sans JP',sans-serif;
+    }
+
+    /* result screen */
+    #result-screen{
+      display:none;flex-direction:column;align-items:center;
+      justify-content:center;padding:32px 20px;
+      flex:1;text-align:center;gap:12px;
+    }
+    #result-screen.show{display:flex;}
+    .res-big{font-family:'Archivo',sans-serif;font-size:52px;font-weight:900;color:var(--ink);line-height:1;}
+    .res-pct{font-size:14px;color:var(--inkSoft);margin-bottom:8px;}
+    .res-row{display:flex;gap:16px;margin:4px 0;}
+    .res-box{text-align:center;background:var(--surface);border:2px solid var(--ink);padding:12px 20px;}
+    .res-num{font-family:'Archivo',sans-serif;font-size:28px;font-weight:900;}
+    .res-lbl{font-size:10px;color:var(--inkSoft);font-weight:700;}
+    .res-num.ok{color:var(--blue);}
+    .res-num.ng{color:var(--red);}
+    .res-btns{display:flex;flex-direction:column;gap:8px;width:100%;max-width:280px;margin-top:8px;}
+    .res-btn{padding:13px;font-size:13px;font-weight:900;border:2px solid var(--ink);cursor:pointer;font-family:'Noto Sans JP',sans-serif;}
+    #res-retry{background:var(--ink);color:#f0ede6;}
+    #res-back{background:var(--bg);color:var(--ink);}
+
+    /* ── CALCULATOR (fixed bottom) ── */
+    #calc-wrap{
+      flex-shrink:0;
+      background:var(--ink);
+      border-top:2px solid var(--ink);
+      padding:10px 12px 12px;
+      padding-bottom:calc(12px + env(safe-area-inset-bottom,0px));
+    }
+
+    /* display */
+    #calc-display{
+      background:#0a0a0a;border:1px solid #444;
+      padding:8px 12px;margin-bottom:8px;
+      display:flex;align-items:center;justify-content:space-between;gap:8px;
+    }
+    #calc-expr{font-size:10px;color:#666;font-family:'Archivo',sans-serif;min-height:14px;letter-spacing:.03em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    #calc-val{
+      font-family:'Archivo',sans-serif;font-size:26px;font-weight:700;
+      color:#f0ede6;text-align:right;flex:1;
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    }
+    #calc-val.error{color:var(--red);font-size:16px;}
+
+    /* submit button */
+    #submit-btn{
+      background:var(--blue);color:#fff;
+      border:none;font-size:12px;font-weight:900;
+      padding:6px 12px;cursor:pointer;
+      font-family:'Noto Sans JP',sans-serif;
+      white-space:nowrap;flex-shrink:0;
+      letter-spacing:.03em;
+    }
+    #submit-btn:disabled{background:#333;color:#555;cursor:default;}
+
+    /* keypad */
+    #keypad{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;}
+    .kbtn{
+      padding:0;height:46px;
+      font-size:16px;font-weight:700;
+      border:none;cursor:pointer;
+      font-family:'Archivo','Noto Sans JP',sans-serif;
+      transition:filter .1s;
+      border-radius:2px;
+    }
+    .kbtn:active{filter:brightness(.8);}
+    .kbtn.num{background:#2a2a2a;color:#f0ede6;}
+    .kbtn.op {background:#3a3a3a;color:var(--yellow);}
+    .kbtn.eq {background:var(--blue);color:#fff;font-size:20px;}
+    .kbtn.clr{background:#3a3a3a;color:var(--red);}
+    .kbtn.bs {background:#2a2a2a;color:#f0ede6;font-size:14px;}
+    .kbtn.zero{grid-column:span 2;}
+  </style>
+</head>
+<body>
+
+<div id="topbar">
+  <button class="back-btn" onclick="location.href='index.html'">←</button>
+  <span class="topbar-title">Calc Training</span>
+  <span class="topbar-score" id="topbar-score"></span>
+</div>
+
+<div id="cat-bar">
+  <button class="cat-tab active" data-cat="all">すべて</button>
+  <button class="cat-tab" data-cat="coverage">建蔽率</button>
+  <button class="cat-tab" data-cat="far">容積率</button>
+  <button class="cat-tab" data-cat="slope">道路斜線</button>
+  <button class="cat-tab" data-cat="area">面積換算</button>
+  <button class="cat-tab" data-cat="grid">グリッド</button>
+</div>
+
+<div id="problem-area">
+  <div id="prog-row">
+    <div id="prog-bg"><div id="prog-bar" style="width:0%"></div></div>
+    <span id="prog-label">0 / 10</span>
+  </div>
+
+  <div id="problem-card">
+    <div class="prob-type-label" id="prob-type"></div>
+    <div id="prob-question">読み込み中...</div>
+    <div id="prob-hint"></div>
+    <button id="hint-btn" onclick="showHint()">ヒントを見る</button>
+  </div>
+
+  <div id="feedback">
+    <div class="fb-head" id="fb-head"></div>
+    <div class="fb-formula" id="fb-formula"></div>
+    <button id="next-btn" onclick="nextQuestion()">次の問題 →</button>
+  </div>
+
+  <div id="result-screen">
+    <div class="res-big" id="res-pct-big"></div>
+    <div class="res-pct" id="res-pct-sub"></div>
+    <div class="res-row">
+      <div class="res-box"><div class="res-num ok" id="res-ok">0</div><div class="res-lbl">正解</div></div>
+      <div class="res-box"><div class="res-num ng" id="res-ng">0</div><div class="res-lbl">不正解</div></div>
+    </div>
+    <div class="res-btns">
+      <button class="res-btn" id="res-retry" onclick="startSession()">↺ もう一度</button>
+      <button class="res-btn" id="res-back" onclick="backToCat()">← カテゴリに戻る</button>
+    </div>
+  </div>
+</div>
+
+<!-- 電卓 -->
+<div id="calc-wrap">
+  <div id="calc-display">
+    <div style="flex:1;overflow:hidden;">
+      <div id="calc-expr"></div>
+      <div id="calc-val">0</div>
+    </div>
+    <button id="submit-btn" disabled onclick="submitAnswer()">送信 ✓</button>
+  </div>
+  <div id="keypad">
+    <!-- Row 1 -->
+    <button class="kbtn clr" onclick="calcAC()">AC</button>
+    <button class="kbtn bs"  onclick="calcBS()">⌫</button>
+    <button class="kbtn op"  onclick="calcOp('%')">%</button>
+    <button class="kbtn op"  onclick="calcOp('÷')">÷</button>
+    <!-- Row 2 -->
+    <button class="kbtn num" onclick="calcNum('7')">7</button>
+    <button class="kbtn num" onclick="calcNum('8')">8</button>
+    <button class="kbtn num" onclick="calcNum('9')">9</button>
+    <button class="kbtn op"  onclick="calcOp('×')">×</button>
+    <!-- Row 3 -->
+    <button class="kbtn num" onclick="calcNum('4')">4</button>
+    <button class="kbtn num" onclick="calcNum('5')">5</button>
+    <button class="kbtn num" onclick="calcNum('6')">6</button>
+    <button class="kbtn op"  onclick="calcOp('−')">−</button>
+    <!-- Row 4 -->
+    <button class="kbtn num" onclick="calcNum('1')">1</button>
+    <button class="kbtn num" onclick="calcNum('2')">2</button>
+    <button class="kbtn num" onclick="calcNum('3')">3</button>
+    <button class="kbtn op"  onclick="calcOp('+')">+</button>
+    <!-- Row 5 -->
+    <button class="kbtn num zero" onclick="calcNum('0')">0</button>
+    <button class="kbtn num" onclick="calcDot()">.</button>
+    <button class="kbtn eq"  onclick="calcEq()">=</button>
+  </div>
+</div>
+
+<script>
+// ======================================================
+// 問題生成
+// ======================================================
+function rnd(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+function r1(n){ return Math.round(n*10)/10; }
+function r2(n){ return Math.round(n*100)/100; }
+
+const PROBLEM_TYPES = {
+
+  coverage: [
+    // 建蔽率を求める
+    () => {
+      const siteA = rnd([100,120,150,160,180,200,250]);
+      const rates = [40,50,60,70];
+      const rate  = rnd(rates);
+      const buildA= Math.round(siteA * rate / 100);
+      return {
+        typeLabel:'建蔽率を求める',
+        question:`敷地面積 ${siteA}㎡\n建築面積 ${buildA}㎡\n\n建蔽率は何%？`,
+        answer: rate,
+        tolerance: 0.5,
+        unit:'%',
+        hint:'建蔽率(%) = 建築面積 ÷ 敷地面積 × 100',
+        formula:`建築面積 ÷ 敷地面積 × 100\n= ${buildA} ÷ ${siteA} × 100\n= **${rate}%**`,
+      };
+    },
+    // 最大建築面積を求める
+    () => {
+      const siteA = rnd([100,120,150,160,180,200]);
+      const rate  = rnd([40,50,60,70]);
+      const ans   = siteA * rate / 100;
+      return {
+        typeLabel:'最大建築面積を求める',
+        question:`敷地面積 ${siteA}㎡\n建蔽率 ${rate}%\n\n最大建築面積は何㎡？`,
+        answer: ans,
+        tolerance: 0.5,
+        unit:'㎡',
+        hint:'最大建築面積 = 敷地面積 × 建蔽率 ÷ 100',
+        formula:`敷地面積 × 建蔽率 ÷ 100\n= ${siteA} × ${rate} ÷ 100\n= **${ans}㎡**`,
+      };
+    },
+    // 角地緩和後の建蔽率
+    () => {
+      const base = rnd([50,60,70]);
+      const relaxed = base + 10;
+      const siteA   = rnd([100,120,150,180]);
+      const ans     = siteA * relaxed / 100;
+      return {
+        typeLabel:'角地緩和後の最大建築面積',
+        question:`角地（建蔽率緩和+10%）\n基本建蔽率 ${base}%\n敷地面積 ${siteA}㎡\n\n緩和後の最大建築面積は？`,
+        answer: ans,
+        tolerance: 0.5,
+        unit:'㎡',
+        hint:`角地は建蔽率+10%。緩和後=${relaxed}%`,
+        formula:`緩和後建蔽率 = ${base} + 10 = ${relaxed}%\n最大建築面積 = ${siteA} × ${relaxed} ÷ 100\n= **${ans}㎡**`,
+      };
+    },
+  ],
+
+  far: [
+    // 容積率を求める
+    () => {
+      const siteA = rnd([100,120,150,200]);
+      const rate  = rnd([100,150,200,250]);
+      const totalA= Math.round(siteA * rate / 100);
+      return {
+        typeLabel:'容積率を求める',
+        question:`敷地面積 ${siteA}㎡\n延べ面積 ${totalA}㎡\n\n容積率は何%？`,
+        answer: rate,
+        tolerance: 0.5,
+        unit:'%',
+        hint:'容積率(%) = 延べ面積 ÷ 敷地面積 × 100',
+        formula:`延べ面積 ÷ 敷地面積 × 100\n= ${totalA} ÷ ${siteA} × 100\n= **${rate}%**`,
+      };
+    },
+    // 最大延べ面積
+    () => {
+      const siteA = rnd([100,120,150,180,200]);
+      const rate  = rnd([100,150,200,250,300]);
+      const ans   = siteA * rate / 100;
+      return {
+        typeLabel:'最大延べ面積を求める',
+        question:`敷地面積 ${siteA}㎡\n容積率 ${rate}%\n\n最大延べ面積は何㎡？`,
+        answer: ans,
+        tolerance: 0.5,
+        unit:'㎡',
+        hint:'最大延べ面積 = 敷地面積 × 容積率 ÷ 100',
+        formula:`敷地面積 × 容積率 ÷ 100\n= ${siteA} × ${rate} ÷ 100\n= **${ans}㎡**`,
+      };
+    },
+    // 駐車場除外後の容積率算定
+    () => {
+      const siteA  = rnd([150,180,200,250]);
+      const total  = rnd([200,250,300]);
+      const garage = rnd([20,25,30]);
+      const limit  = Math.floor(total/5);
+      const exc    = Math.min(garage, limit);
+      const calc   = total - exc;
+      const rate   = r1(calc / siteA * 100);
+      return {
+        typeLabel:'容積率算定（駐車場除外）',
+        question:`延べ面積 ${total}㎡（うち駐車場 ${garage}㎡）\n敷地面積 ${siteA}㎡\n\n容積率算定の延べ面積は？\n（駐車場は延べ面積の1/5まで除外可）`,
+        answer: calc,
+        tolerance: 1,
+        unit:'㎡',
+        hint:`駐車場除外可能上限 = ${total} ÷ 5 = ${limit}㎡\n実際の駐車場${garage}㎡ ${garage<=limit?'≦':'>'} ${limit}㎡なので除外は${exc}㎡`,
+        formula:`除外可能上限 = ${total} ÷ 5 = ${limit}㎡\n駐車場 ${garage}㎡ → 除外 ${exc}㎡\n算定延べ面積 = ${total} − ${exc}\n= **${calc}㎡**`,
+      };
+    },
+  ],
+
+  slope: [
+    // 道路斜線 基本
+    () => {
+      const road   = rnd([4,5,6,8,10]);
+      const slope  = rnd([1.25,1.5]);
+      const setback= rnd([0,1,2]);
+      const ans    = r2((road + setback) * slope);
+      const zone   = slope===1.25 ? '住居系地域（勾配1.25）' : '商業系地域（勾配1.5）';
+      return {
+        typeLabel:'道路斜線制限の高さ',
+        question:`道路幅員 ${road}m\nセットバック ${setback}m\n${zone}\n\n道路斜線による高さ制限は？`,
+        answer: ans,
+        tolerance: 0.1,
+        unit:'m',
+        hint:`高さ = (道路幅員 + セットバック) × 勾配`,
+        formula:`(${road} + ${setback}) × ${slope}\n= ${road+setback} × ${slope}\n= **${ans}m**`,
+      };
+    },
+    // 公園緩和
+    () => {
+      const road   = rnd([4,5,6]);
+      const park   = rnd([4,6,8,10]);
+      const slope  = 1.25;
+      const eff    = road + park/2;
+      const ans    = r2(eff * slope);
+      return {
+        typeLabel:'道路斜線（公園緩和）',
+        question:`道路幅員 ${road}m\n道路の反対側に公園（幅 ${park}m）\n用途地域：住居系（勾配1.25）\nセットバックなし\n\n公園緩和後の高さ制限は？`,
+        answer: ans,
+        tolerance: 0.1,
+        unit:'m',
+        hint:`公園幅の1/2を道路幅員に加算できる（令134条）`,
+        formula:`有効道路幅 = ${road} + ${park}/2 = ${eff}m\n高さ = ${eff} × ${slope}\n= **${ans}m**`,
+      };
+    },
+    // 北側斜線（低層住居）
+    () => {
+      const setback = rnd([0,1,2,3]);
+      const ans     = r2(5 + setback * 1.25);
+      return {
+        typeLabel:'北側斜線制限の高さ（低層住居）',
+        question:`第一種低層住居専用地域\n北側隣地境界から ${setback}m セットバック\n\n北側斜線による高さ制限は？`,
+        answer: ans,
+        tolerance: 0.1,
+        unit:'m',
+        hint:'北側斜線：隣地境界上5m + (セットバック距離 × 1.25)',
+        formula:`5 + ${setback} × 1.25\n= 5 + ${r2(setback*1.25)}\n= **${ans}m**`,
+      };
+    },
+  ],
+
+  area: [
+    // ㎡→畳
+    () => {
+      const tatami = rnd([6,8,10,12,14,16,18,20]);
+      const m2     = r1(tatami * 1.65);
+      return {
+        typeLabel:'面積換算：㎡→畳',
+        question:`${m2}㎡ は何畳？\n（1畳 = 1.65㎡）\n小数第1位まで求めよ`,
+        answer: tatami,
+        tolerance: 0.2,
+        unit:'畳',
+        hint:'畳数 = ㎡ ÷ 1.65',
+        formula:`${m2} ÷ 1.65\n= **${tatami}畳**`,
+      };
+    },
+    // 畳→㎡
+    () => {
+      const tatami = rnd([4,6,8,10,12]);
+      const ans    = r1(tatami * 1.65);
+      return {
+        typeLabel:'面積換算：畳→㎡',
+        question:`${tatami}畳 は何㎡？\n（1畳 = 1.65㎡）\n小数第1位まで求めよ`,
+        answer: ans,
+        tolerance: 0.1,
+        unit:'㎡',
+        hint:'㎡ = 畳数 × 1.65',
+        formula:`${tatami} × 1.65\n= **${ans}㎡**`,
+      };
+    },
+    // ㎡→坪
+    () => {
+      const tsubo = rnd([20,25,30,35,40]);
+      const m2    = r1(tsubo * 3.306);
+      return {
+        typeLabel:'面積換算：㎡→坪',
+        question:`${m2}㎡ は何坪？\n（1坪 = 3.306㎡）\n小数第1位まで求めよ`,
+        answer: tsubo,
+        tolerance: 0.3,
+        unit:'坪',
+        hint:'坪数 = ㎡ ÷ 3.306',
+        formula:`${m2} ÷ 3.306\n≈ **${tsubo}坪**`,
+      };
+    },
+    // 坪→㎡
+    () => {
+      const tsubo = rnd([20,25,30,35]);
+      const ans   = r1(tsubo * 3.306);
+      return {
+        typeLabel:'面積換算：坪→㎡',
+        question:`${tsubo}坪 は何㎡？\n（1坪 = 3.306㎡）\n小数第1位まで求めよ`,
+        answer: ans,
+        tolerance: 0.5,
+        unit:'㎡',
+        hint:'㎡ = 坪数 × 3.306',
+        formula:`${tsubo} × 3.306\n= **${ans}㎡**`,
+      };
+    },
+  ],
+
+  grid: [
+    // グリッドから㎡
+    () => {
+      const gx = rnd([4,6,8,10]);
+      const gy = rnd([4,6,8,10,12]);
+      const mm_x = gx * 455;
+      const mm_y = gy * 455;
+      const ans  = r2((mm_x/1000) * (mm_y/1000));
+      return {
+        typeLabel:'グリッドから床面積を求める',
+        question:`幅 ${gx}グリッド × 奥行 ${gy}グリッド の部屋\n（1グリッド = 455mm）\n\n床面積は何㎡？（小数第2位まで）`,
+        answer: ans,
+        tolerance: 0.05,
+        unit:'㎡',
+        hint:`1グリッド = 455mm = 0.455m`,
+        formula:`幅 = ${gx} × 0.455 = ${r2(gx*0.455)}m\n奥行 = ${gy} × 0.455 = ${r2(gy*0.455)}m\n面積 = ${r2(gx*0.455)} × ${r2(gy*0.455)}\n= **${ans}㎡**`,
+      };
+    },
+    // ㎡からグリッド数（逆算）
+    () => {
+      const gx   = rnd([4,6,8]);
+      const gy   = rnd([6,8,10]);
+      const m2   = r2((gx*0.455)*(gy*0.455));
+      const gAll = gx * gy;
+      return {
+        typeLabel:'床面積からグリッド数を求める',
+        question:`床面積 ${m2}㎡ の部屋（正方形に近い形）\n1グリッド = 455mm として\n\n幅 ${gx}グリッドの場合、奥行は何グリッド？`,
+        answer: gy,
+        tolerance: 0,
+        unit:'グリッド',
+        hint:`奥行(m) = 面積 ÷ 幅(m)、その後 ÷ 0.455`,
+        formula:`幅 = ${gx} × 0.455 = ${r2(gx*0.455)}m\n奥行(m) = ${m2} ÷ ${r2(gx*0.455)} = ${r2(gy*0.455)}m\n奥行(グリッド) = ${r2(gy*0.455)} ÷ 0.455\n= **${gy}グリッド**`,
+      };
+    },
+    // 採光面積チェック
+    () => {
+      const gx = rnd([6,8,10,12]);
+      const gy = rnd([6,8,10]);
+      const m2 = r2((gx*0.455)*(gy*0.455));
+      const minW = r2(m2 / 7);
+      return {
+        typeLabel:'居室の最小採光開口部面積',
+        question:`居室の床面積 ${m2}㎡\n（${gx}×${gy}グリッド）\n\n必要な採光開口部の最小面積は？\n（住宅：床面積の1/7以上）`,
+        answer: minW,
+        tolerance: 0.05,
+        unit:'㎡',
+        hint:'採光開口部 ≥ 床面積 ÷ 7',
+        formula:`${m2} ÷ 7\n= **${minW}㎡** 以上`,
+      };
+    },
+  ],
+};
+
+// ======================================================
+// セッション管理
+// ======================================================
+const SESSION_LEN = 10;
+let session  = [];   // {type, ...問題}
+let sesIdx   = 0;
+let sesOK    = 0;
+let sesNG    = 0;
+let answered = false;
+let currentCat = 'all';
+
+const SCORE_KEY = 'calc_scores';
+function getScores(){ try{ return JSON.parse(localStorage.getItem(SCORE_KEY))||{}; }catch{ return {}; } }
+function addScore(cat, ok){
+  const s = getScores();
+  if(!s[cat]) s[cat]={ok:0,total:0};
+  s[cat].ok    += ok?1:0;
+  s[cat].total += 1;
+  localStorage.setItem(SCORE_KEY, JSON.stringify(s));
+}
+
+function getCatGenerators(cat){
+  if(cat==='all') return Object.values(PROBLEM_TYPES).flat();
+  return PROBLEM_TYPES[cat] || [];
+}
+
+function startSession(){
+  const gens = getCatGenerators(currentCat);
+  session = [];
+  for(let i=0;i<SESSION_LEN;i++){
+    const gen = gens[Math.floor(Math.random()*gens.length)];
+    session.push(gen());
+  }
+  sesIdx=0; sesOK=0; sesNG=0; answered=false;
+
+  document.getElementById('result-screen').classList.remove('show');
+  document.getElementById('problem-area').style.overflowY='auto';
+  document.getElementById('calc-wrap').style.display='';
+  showQuestion();
+}
+
+function showQuestion(){
+  if(sesIdx >= session.length){ showResult(); return; }
+  const q = session[sesIdx];
+
+  document.getElementById('prob-type').textContent    = q.typeLabel;
+  document.getElementById('prob-question').textContent = q.question;
+  document.getElementById('prob-hint').style.display  = 'none';
+  document.getElementById('prob-hint').textContent    = '';
+  document.getElementById('hint-btn').style.display   = '';
+  document.getElementById('feedback').style.display   = 'none';
+  document.getElementById('feedback').className       = 'feedback';
+
+  // progress
+  const pct = sesIdx / session.length * 100;
+  document.getElementById('prog-bar').style.width  = pct+'%';
+  document.getElementById('prog-label').textContent = `${sesIdx} / ${session.length}`;
+
+  // topbar score
+  const total = sesOK+sesNG;
+  document.getElementById('topbar-score').textContent =
+    total>0 ? `正解率 ${Math.round(sesOK/total*100)}%` : '';
+
+  answered = false;
+  calcAC();
+  document.getElementById('submit-btn').disabled = true;
+
+  // scroll to top of problem area
+  document.getElementById('problem-area').scrollTop = 0;
+}
+
+function showHint(){
+  const q = session[sesIdx];
+  document.getElementById('prob-hint').textContent = '💡 ' + q.hint;
+  document.getElementById('prob-hint').style.display = 'block';
+  document.getElementById('hint-btn').style.display  = 'none';
+}
+
+function submitAnswer(){
+  if(answered) return;
+  answered = true;
+  document.getElementById('submit-btn').disabled = true;
+
+  const q   = session[sesIdx];
+  const raw = parseFloat(calcState.display.replace(/,/g,''));
+  if(isNaN(raw)){ showFeedback(false, q); return; }
+
+  const tol = q.tolerance ?? 0.5;
+  const ok  = Math.abs(raw - q.answer) <= tol;
+  sesOK += ok?1:0;
+  sesNG += ok?0:1;
+  addScore(currentCat, ok);
+  showFeedback(ok, q);
+}
+
+function showFeedback(ok, q){
+  const fb = document.getElementById('feedback');
+  fb.style.display = '';
+  fb.className = ok ? 'correct' : 'incorrect';
+
+  document.getElementById('fb-head').textContent   = ok ? '✅ 正解！' : `❌ 不正解 （正解：${q.answer}${q.unit}）`;
+  document.getElementById('fb-head').className     = ok ? 'fb-head ok' : 'fb-head ng';
+
+  // マークダウン **bold** を変換
+  const formula = q.formula.replace(/\*\*(.*?)\*\*/g, (_, s) => `【${s}】`);
+  document.getElementById('fb-formula').innerHTML =
+    formula.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/\n/g,'<br>')
+      .replace(/【(.*?)】/g, '<strong>$1</strong>');
+
+  // scroll feedback into view
+  setTimeout(()=>{
+    fb.scrollIntoView({behavior:'smooth', block:'nearest'});
+  }, 100);
+}
+
+function nextQuestion(){
+  sesIdx++;
+  showQuestion();
+}
+
+function showResult(){
+  document.getElementById('result-screen').classList.add('show');
+  document.getElementById('problem-card').style.display = 'none';
+  document.getElementById('prog-row').style.display     = 'none';
+  document.getElementById('feedback').style.display     = 'none';
+  document.getElementById('calc-wrap').style.display    = 'none';
+
+  const total = sesOK+sesNG;
+  const pct   = total>0 ? Math.round(sesOK/total*100) : 0;
+  document.getElementById('res-pct-big').textContent = pct+'%';
+  document.getElementById('res-pct-sub').textContent =
+    `${sesOK}問正解 / ${total}問中`;
+  document.getElementById('res-ok').textContent = sesOK;
+  document.getElementById('res-ng').textContent = sesNG;
+}
+
+function backToCat(){
+  document.getElementById('result-screen').classList.remove('show');
+  document.getElementById('problem-card').style.display = '';
+  document.getElementById('prog-row').style.display     = '';
+  document.getElementById('calc-wrap').style.display    = '';
+  startSession();
+}
+
+// カテゴリタブ
+document.querySelectorAll('.cat-tab').forEach(tab=>{
+  tab.addEventListener('click',()=>{
+    document.querySelectorAll('.cat-tab').forEach(t=>t.classList.remove('active'));
+    tab.classList.add('active');
+    currentCat = tab.dataset.cat;
+    startSession();
+  });
+});
+
+// ======================================================
+// 電卓ロジック
+// ======================================================
+const calcState = {
+  display: '0',
+  expr:    '',
+  left:    null,
+  op:      null,
+  waitRight: false,
+  justEq:  false,
+};
+
+function updateDisplay(){
+  const val = calcState.display;
+  const el  = document.getElementById('calc-val');
+  el.textContent = val;
+  el.className = val==='エラー' ? 'error' : '';
+  document.getElementById('calc-expr').textContent = calcState.expr;
+  // 0以外が入力されたら送信ボタン有効
+  document.getElementById('submit-btn').disabled = (val==='0'||val==='エラー'||answered);
+}
+
+function calcNum(n){
+  if(calcState.display==='エラー') calcAC();
+  if(calcState.waitRight){
+    calcState.display = n;
+    calcState.waitRight = false;
+  } else {
+    calcState.display = calcState.display==='0' ? n : calcState.display+n;
+  }
+  calcState.justEq = false;
+  updateDisplay();
+}
+
+function calcDot(){
+  if(calcState.waitRight){ calcState.display='0'; calcState.waitRight=false; }
+  if(!calcState.display.includes('.')) calcState.display += '.';
+  calcState.justEq = false;
+  updateDisplay();
+}
+
+function calcOp(op){
+  if(calcState.display==='エラー') return;
+  const cur = parseFloat(calcState.display)||0;
+  if(calcState.left !== null && !calcState.waitRight && !calcState.justEq){
+    const res = compute(calcState.left, calcState.op, cur);
+    calcState.left    = res;
+    calcState.display = fmt(res);
+    calcState.expr    = fmt(res) + ' ' + op;
+  } else {
+    calcState.left  = cur;
+    calcState.expr  = fmt(cur) + ' ' + op;
+  }
+  calcState.op        = op;
+  calcState.waitRight = true;
+  calcState.justEq    = false;
+  updateDisplay();
+}
+
+function calcEq(){
+  if(calcState.op===null || calcState.waitRight) return;
+  const right = parseFloat(calcState.display)||0;
+  const res   = compute(calcState.left, calcState.op, right);
+  calcState.expr    = calcState.expr + ' ' + calcState.display + ' =';
+  calcState.display = fmt(res);
+  calcState.left    = null;
+  calcState.op      = null;
+  calcState.waitRight = false;
+  calcState.justEq  = true;
+  updateDisplay();
+}
+
+function calcAC(){
+  calcState.display   = '0';
+  calcState.expr      = '';
+  calcState.left      = null;
+  calcState.op        = null;
+  calcState.waitRight = false;
+  calcState.justEq    = false;
+  updateDisplay();
+}
+
+function calcBS(){
+  if(calcState.waitRight || calcState.justEq) return;
+  if(calcState.display==='エラー'){ calcAC(); return; }
+  calcState.display = calcState.display.length>1
+    ? calcState.display.slice(0,-1)
+    : '0';
+  updateDisplay();
+}
+
+function compute(a, op, b){
+  if(op==='+'  ) return a+b;
+  if(op==='−'  ) return a-b;
+  if(op==='×'  ) return a*b;
+  if(op==='÷'  ) return b===0 ? NaN : a/b;
+  if(op==='%'  ) return a * b / 100;
+  return b;
+}
+
+function fmt(n){
+  if(isNaN(n)||!isFinite(n)) return 'エラー';
+  // 小数点以下が長すぎる場合は丸める
+  const s = String(Math.round(n*10000)/10000);
+  return s;
+}
+
+// キーボード対応
+document.addEventListener('keydown', e => {
+  if(e.key>='0'&&e.key<='9') { calcNum(e.key); return; }
+  if(e.key==='.'||e.key===',') { calcDot(); return; }
+  if(e.key==='+') { calcOp('+'); return; }
+  if(e.key==='-') { calcOp('−'); return; }
+  if(e.key==='*') { calcOp('×'); return; }
+  if(e.key==='/') { e.preventDefault(); calcOp('÷'); return; }
+  if(e.key==='%') { calcOp('%'); return; }
+  if(e.key==='Enter'||e.key==='=') { calcEq(); return; }
+  if(e.key==='Backspace') { calcBS(); return; }
+  if(e.key==='Escape') { calcAC(); return; }
+});
+
+// ======================================================
+// 起動
+// ======================================================
+startSession();
+</script>
+</body>
+</html>
