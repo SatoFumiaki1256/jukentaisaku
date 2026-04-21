@@ -181,6 +181,9 @@
     .tag-diff-inter{background:var(--yellow);color:var(--ink);}
     .tag-diff-advanced{background:var(--red);color:#fff;}
     .tag-struct{background:var(--ink);color:var(--surface);}
+    .tag-mokuzou{background:#5D4037;color:#fff;}
+    .tag-rc{background:#37474F;color:#fff;}
+    .tag-s{background:#004D40;color:#fff;}
     .problem-title{
       font-family:'Noto Sans JP',sans-serif;
       font-size:16px;font-weight:900;color:var(--ink);
@@ -519,6 +522,11 @@ const diffClass = {
   '発展': 'tag-diff-advanced',
   '実践': 'tag-diff-advanced',
 };
+const structClass = {
+  '木造': 'tag-mokuzou',
+  'RC':   'tag-rc',
+  'S造':  'tag-s',
+};
 
 /* Bauhaus accent colors cycled per card */
 const accentColors = ['#f5c518', '#d3312a', '#2952c8'];
@@ -537,7 +545,7 @@ function renderProblems() {
         <div class="problem-header-right">
           <div class="problem-card-tags">
             <span class="tag ${diffClass[p.difficulty] || 'tag-diff-inter'}">${p.difficulty}</span>
-            <span class="tag tag-struct">${p.structure}</span>
+            <span class="tag ${structClass[p.structureType] || 'tag-struct'}">${p.structureType || p.structure}</span>
           </div>
           <div class="problem-title">${escHtml(p.title)}</div>
           <div class="problem-desc">${escHtml(p.desc)}</div>
