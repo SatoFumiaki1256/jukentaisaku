@@ -293,7 +293,7 @@ function renderProblem(p) {
   const siteArea = p.siteW && p.siteH ? ((p.siteW/1000)*(p.siteH/1000)).toFixed(0)+'㎡' : '—';
 
   const stats = [
-    {label:'構造・階数', val: p.structure||'—'},
+    {label:'構造種別', val: p.structure||'—', sub: p.structureType||null},
     {label:'用途地域',   val: (p.zoning||'—').replace('地域',''), sub: p.fireZone?`防火：${p.fireZone}`:null},
     {label:'敷地面積',   val: siteArea, sub: `${siteW} × ${siteH}`},
     {label:'建蔽率',     val: p.coverage ? p.coverage+'%' : '—', sub: p.coverageBonus ? '角地加算含む' : null},

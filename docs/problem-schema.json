@@ -4,7 +4,7 @@
   "title": "Problem",
   "description": "二級建築士製図試験対策アプリ 課題データスキーマ v1.0",
   "type": "object",
-  "required": ["id", "title", "difficulty", "structure", "siteW", "siteH", "coverage", "far"],
+  "required": ["id", "title", "difficulty", "structure", "structureType", "siteW", "siteH", "coverage", "far"],
   "properties": {
 
     "id": {
@@ -32,7 +32,13 @@
 
     "structure": {
       "type": "string",
-      "description": "構造種別（例: 木造2階建）"
+      "description": "構造種別・詳細テキスト（例: 木造2階建、RC造3階建）"
+    },
+
+    "structureType": {
+      "type": "string",
+      "enum": ["木造", "RC", "S造"],
+      "description": "構造種別の分類キー（フィルタリング・バッジ表示用）"
     },
 
     "floors": {
