@@ -1694,8 +1694,8 @@ function drawConnections() {
   ctx.lineCap = 'round';
 
   state.connections.forEach(conn => {
-    const r1 = state.rooms.find(r => r.id === conn.roomId1);
-    const r2 = state.rooms.find(r => r.id === conn.roomId2);
+    const r1 = state.rooms.find(r => String(r.id) === String(conn.roomId1));
+    const r2 = state.rooms.find(r => String(r.id) === String(conn.roomId2));
     if(!r1 || !r2) return;
     // center of each room in screen coords
     const c1 = mmToScreen(r1.x + r1.w/2, r1.y + r1.h/2);
@@ -2359,7 +2359,8 @@ function animateTrashDelete(roomId, wallId = null) {
       targetX:tx, targetY:ty,
     };
     state.rooms = state.rooms.filter(ro => ro.id !== roomId);
-    state.connections = (state.connections||[]).filter(c => c.roomId1!==roomId && c.roomId2!==roomId);
+    const _rIdS1 = String(roomId);
+    state.connections = (state.connections||[]).filter(c => String(c.roomId1)!==_rIdS1 && String(c.roomId2)!==_rIdS1);
     state.selected = null;
     saveHistory(); updateAreaOverlay();
   }
@@ -2380,7 +2381,8 @@ function deleteSelected() {
     const rid = state.selected.id;
     state.rooms = state.rooms.filter(r => r.id !== rid);
     // 削除した部屋に繋がるconn線も削除
-    state.connections = (state.connections||[]).filter(c => c.roomId1!==rid && c.roomId2!==rid);
+    const _ridStr1 = String(rid);
+    state.connections = (state.connections||[]).filter(c => String(c.roomId1)!==_ridStr1 && String(c.roomId2)!==_ridStr1);
   } else if(state.selected.kind === 'wall') {
     state.walls = state.walls.filter(w => w.id !== state.selected.id);
   }
@@ -3109,14 +3111,20 @@ function openRoomModal(room) {
   const optionsHtml = `<option value="">── なし ──</option>` +
     otherRooms.map(r => `<option value="${escHtml(r.id)}">${escHtml(r.name||r.type)}</option>`).join('');
 
-  // 現在このroomに繋がっているconnections
-  const myConns = (state.connections||[]).filter(c => c.roomId1===room.id || c.roomId2===room.id);
-  const connectedIds = myConns.map(c => c.roomId1===room.id ? c.roomId2 : c.roomId1);
+  // 現在このroomに繋がっているconnections（文字列比較で型不一致を回避）
+  const rid = String(room.id);
+  const myConns = (state.connections||[]).filter(c =>
+    String(c.roomId1) === rid || String(c.roomId2) === rid
+  );
+  const connectedIds = myConns.map(c =>
+    String(c.roomId1) === rid ? String(c.roomId2) : String(c.roomId1)
+  );
 
   for(let i=0; i<4; i++) {
     const el = document.getElementById(`m-conn-${i}`);
     el.innerHTML = optionsHtml;
-    el.value = connectedIds[i] || '';
+    // select.value は常に文字列なので String() で統一
+    el.value = connectedIds[i] !== undefined ? String(connectedIds[i]) : '';
   }
 
   document.getElementById('modal-overlay').classList.add('open');
@@ -3132,19 +3140,22 @@ document.getElementById('m-ok').onclick = () => {
     r.h = parseInt(document.getElementById('m-h').value) || r.h;
     r.note = document.getElementById('m-note').value;
 
-    // コネクト線を更新: このroomのconnectionsをいったん削除して再構築
-    state.connections = (state.connections||[]).filter(c => c.roomId1 !== r.id && c.roomId2 !== r.id);
+    // コネクト線を更新: このroomのconnectionsをいったん削除して再構築（IDは常に文字列で保持）
+    const rIdStr = String(r.id);
+    state.connections = (state.connections||[]).filter(c =>
+      String(c.roomId1) !== rIdStr && String(c.roomId2) !== rIdStr
+    );
     const seen = new Set();
     for(let i=0; i<4; i++) {
-      const targetId = document.getElementById(`m-conn-${i}`).value;
+      const targetId = document.getElementById(`m-conn-${i}`).value; // 常に文字列
       if(!targetId || seen.has(targetId)) continue;
-      // 逆向きの重複チェック
       const dup = state.connections.some(c =>
-        (c.roomId1===r.id && c.roomId2===targetId) ||
-        (c.roomId1===targetId && c.roomId2===r.id)
+        (String(c.roomId1) === rIdStr && String(c.roomId2) === targetId) ||
+        (String(c.roomId1) === targetId && String(c.roomId2) === rIdStr)
       );
       if(!dup) {
-        state.connections.push({id: `conn_${Date.now()}_${i}`, roomId1:r.id, roomId2:targetId});
+        // roomId1/roomId2 は文字列に統一して保存
+        state.connections.push({id:`conn_${Date.now()}_${i}`, roomId1:rIdStr, roomId2:targetId});
         seen.add(targetId);
       }
     }
@@ -3158,7 +3169,8 @@ document.getElementById('m-delete').onclick = () => {
   const rid = editingRoom.id;
   state.rooms = state.rooms.filter(r=>r.id!==rid);
   // 削除した部屋に繋がるconn線も削除
-  state.connections = (state.connections||[]).filter(c => c.roomId1!==rid && c.roomId2!==rid);
+  const _ridStr2 = String(rid);
+  state.connections = (state.connections||[]).filter(c => String(c.roomId1)!==_ridStr2 && String(c.roomId2)!==_ridStr2);
   state.selected = null;
   saveHistory(); updateAreaOverlay(); render();
   closeModal();
@@ -3986,9 +3998,7 @@ document.getElementById('redo-btn').onclick = redo;
 // UTILITIES
 // ======================================================
 function fmtMm(mm) {
-  const m = Math.abs(mm);
-  if(m >= 1000) return (m/1000).toFixed(2).replace(/0+$/,'').replace(/\.$/,'') + 'm';
-  return Math.round(m) + 'mm';
+  return Math.round(Math.abs(mm)).toLocaleString('ja-JP') + 'mm';
 }
 
 function hexAlpha(hex, alpha) {
