@@ -1,0 +1,260 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://jukentaisaku.vercel.app/docs/problem-schema.json",
+  "title": "Problem",
+  "description": "二級建築士製図試験対策アプリ 課題データスキーマ v1.0",
+  "type": "object",
+  "required": ["id", "title", "difficulty", "structure", "siteW", "siteH", "coverage", "far"],
+  "properties": {
+
+    "id": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "課題の一意ID（連番推奨）"
+    },
+
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "description": "課題タイトル"
+    },
+
+    "desc": {
+      "type": "string",
+      "description": "課題の概要説明"
+    },
+
+    "difficulty": {
+      "type": "string",
+      "enum": ["基礎", "応用", "実践"],
+      "description": "難易度"
+    },
+
+    "structure": {
+      "type": "string",
+      "description": "構造種別（例: 木造2階建）"
+    },
+
+    "floors": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 3,
+      "description": "階数"
+    },
+
+    "maxHeight": {
+      "type": "number",
+      "minimum": 1,
+      "description": "建築物の最高の高さ（m）"
+    },
+
+    "eavesHeight": {
+      "type": "number",
+      "minimum": 1,
+      "description": "軒の高さ（m）"
+    },
+
+    "zoning": {
+      "type": "string",
+      "description": "用途地域"
+    },
+
+    "zoningSlope": {
+      "type": "number",
+      "description": "北側斜線の勾配"
+    },
+
+    "fireZone": {
+      "type": "string",
+      "description": "防火地域指定（例: 指定なし, 準防火地域）"
+    },
+
+    "coverage": {
+      "type": "number",
+      "minimum": 1,
+      "maximum": 100,
+      "description": "建蔽率（%）"
+    },
+
+    "far": {
+      "type": "number",
+      "minimum": 1,
+      "description": "容積率（%）"
+    },
+
+    "coverageBonus": {
+      "type": "string",
+      "description": "建蔽率加算の根拠（例: 角地加算）"
+    },
+
+    "terrain": {
+      "type": "string",
+      "description": "地形（例: 平坦）"
+    },
+
+    "siteW": {
+      "type": "integer",
+      "minimum": 1820,
+      "multipleOf": 455,
+      "description": "敷地幅（mm、455の倍数）"
+    },
+
+    "siteH": {
+      "type": "integer",
+      "minimum": 1820,
+      "multipleOf": 455,
+      "description": "敷地奥行（mm、455の倍数）"
+    },
+
+    "siteAdj": {
+      "type": "object",
+      "description": "敷地4辺の隣接条件",
+      "properties": {
+        "N": { "$ref": "#/definitions/AdjSide" },
+        "S": { "$ref": "#/definitions/AdjSide" },
+        "E": { "$ref": "#/definitions/AdjSide" },
+        "W": { "$ref": "#/definitions/AdjSide" }
+      },
+      "additionalProperties": false
+    },
+
+    "designConditions": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "maxItems": 5,
+      "description": "設計上の留意事項①②③（最大5件）"
+    },
+
+    "structureNotes": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "description": "構造・高さに関する追加条件"
+    },
+
+    "floorAreaMin": {
+      "type": "number",
+      "minimum": 1,
+      "description": "延べ面積の下限（㎡）"
+    },
+
+    "floorAreaMax": {
+      "type": "number",
+      "minimum": 1,
+      "description": "延べ面積の上限（㎡）"
+    },
+
+    "floorAreaExclusion": {
+      "type": "string",
+      "description": "床面積算入除外対象の注記"
+    },
+
+    "notes": {
+      "type": "string",
+      "description": "補足メモ（改行\\n可）"
+    },
+
+    "reqRooms": {
+      "type": "array",
+      "description": "要求室リスト",
+      "items": { "$ref": "#/definitions/ReqRoom" }
+    },
+
+    "exteriorConds": {
+      "type": "array",
+      "description": "屋外施設等リスト",
+      "items": { "$ref": "#/definitions/ExteriorCond" }
+    }
+  },
+
+  "definitions": {
+
+    "AdjSide": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["道路", "宅地", "公園", "緑地", "水路", "河川", "空地", "広場", "里道", "線路敷"],
+          "description": "隣接用途"
+        },
+        "width": {
+          "type": "number",
+          "minimum": 1,
+          "description": "道路幅員（m）。typeが道路の場合は必須"
+        },
+        "opposite": {
+          "type": "string",
+          "enum": ["公園", "広場", "水面", "河川"],
+          "description": "道路対面の用途"
+        },
+        "oppositeWidth": {
+          "type": "number",
+          "minimum": 0,
+          "description": "道路対面の幅（m）"
+        }
+      },
+      "additionalProperties": false,
+      "if": {
+        "properties": { "type": { "const": "道路" } }
+      },
+      "then": {
+        "required": ["width"]
+      }
+    },
+
+    "ReqRoom": {
+      "type": "object",
+      "required": ["name", "floor"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "室名"
+        },
+        "floor": {
+          "type": "string",
+          "enum": ["1F", "2F", "各階", "どちらでも"],
+          "description": "設置階"
+        },
+        "category": {
+          "type": "string",
+          "description": "部分分類（共用部分/専用部分/居住部分/水回り 等）"
+        },
+        "qty": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "室数（省略時=1）"
+        },
+        "area": {
+          "type": "string",
+          "description": "面積条件（例: 20㎡以上, 8畳以上）"
+        },
+        "notes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "maxItems": 10,
+          "description": "特記事項（ア・イ・ウ形式で表示）"
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "ExteriorCond": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "minLength": 1,
+          "description": "施設名（例: 駐車場, 屋外テラス）"
+        },
+        "notes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "特記事項"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
