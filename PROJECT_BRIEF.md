@@ -1,7 +1,7 @@
 # PROJECT_BRIEF.md
 
 > Claude Code 引き継ぎドキュメント
-> 最終更新: 2026-04-20
+> 最終更新: 2026-04-21
 > 新しいセッションを開始したら、まずこのファイルを読んでください。
 > コードは書かず、まず現状を把握してから作業に入ってください。
 
@@ -22,13 +22,17 @@
 
 ```
 /Users/satoufumiaki/Documents/制作物/アプリテスト/
-├── index.html          — 学習ポータルトップページ（バウハウスデザイン）
-├── app.html            — エスキス描画ツール本体（約4150行）
-├── problems.json       — 課題データ（5問）
-├── manifest.json       — PWA用
-├── mockup-bauhaus.jsx  — デザイン参照（React, 全5画面のモックアップ）
-├── PROJECT_BRIEF.md    — このファイル
-└── docs/               — 機能設計ドキュメント
+├── index.html              — 学習ポータルトップページ（バウハウスデザイン）
+├── problem-detail.html     — 課題詳細ページ（?id=N で課題表示）
+├── app.html                — エスキス描画ツール本体（約4200行）
+├── problems.json           — 課題データ（6問）
+├── vercel.json             — Vercel CDN キャッシュ設定（no-cache）
+├── manifest.json           — PWA用
+├── mockup-bauhaus.jsx      — デザイン参照（React, 全5画面のモックアップ）
+├── PROJECT_BRIEF.md        — このファイル
+└── docs/                   — 機能・スキーマドキュメント
+    ├── problem-schema.json       — 課題データ JSON Schema (Draft-07)
+    ├── problem-schema-spec.md    — 管理者向け課題データ仕様書
     ├── feature-flashcard.md
     ├── feature-tips.md
     ├── feature-calc-training.md
@@ -36,10 +40,10 @@
     └── feature-detail-drawing.md
 ```
 
-**配信**: Vercel（本番） https://jukentaisaku.vercel.app  
-**ローカル開発**: Python `http.server` でポート8080起動  
-**GitHub**: https://github.com/SatoFumiaki1256/jukentaisaku  
-**デプロイ手順**: `git push` → Vercel自動デプロイ（または `vercel --prod`）
+**配信**: Vercel（本番） https://jukentaisaku.vercel.app
+**ローカル開発**: Python `http.server` でポート8080起動
+**GitHub**: https://github.com/SatoFumiaki1256/jukentaisaku
+**デプロイ手順**: `vercel --prod --yes`（⚠️ GitHub pushでは自動デプロイされない）
 
 ---
 
@@ -52,6 +56,7 @@
 - **移動ツール（pan）**: ダブルタップ/長押しで選択→ドラッグ移動。単タップで選択、選択済みを再タップでモーダル
 - **編集ツール（select）**: タップで部屋の編集モーダルを開く（名前・タイプ・サイズ・メモ変更）
 - **削除ツール（erase）**: タップで削除。ドラッグしてツールバーへドロップ→吸い込みアニメーション削除
+- **コネクト機能**: 部屋編集モーダルから最大4室を接続。青い破線でキャンバスに表示。部屋移動時に追従。削除時に自動解除。
 - ピンチズーム（最小〜10%）、パンスクロール
 - アンドゥ/リドゥ（最大60ステップ）
 
@@ -71,7 +76,7 @@
 - 敷地サイズや形状の入力変更時にリアルタイム更新
 
 ### キャンバス寸法表示
-- 敷地全4辺の寸法ラベル（常時表示）
+- 敷地全4辺の寸法ラベル（常時表示・mm単位）
 - SVG図内にも4辺の寸法ラベル
 
 ### 道路斜線制限チェック（補助有りモード）
@@ -92,14 +97,15 @@
 
 ### 保存/ロード（localStorageベース）
 - **エスキス保存**: 名前をつけて保存（最大20件）、ロード、削除
+- 課題ごとにフィルタして表示（problemId で紐付け）
 - **課題保存**: 課題条件を保存（最大10件）、ロード、削除
 - 画像として書き出し
 - `index.html` の「マイエスキス」セクションに最新5件を表示
 
-### 課題選択（index.html）
-- `problems.json` をfetchして動的にカード表示
-- 5問（基礎2問、応用3問）
-- 試験日カウントダウン（2026/09/20）を動的表示
+### 課題選択（index.html → problem-detail.html → app.html の流れ）
+- `index.html`: problems.json をfetchして動的にカード表示（structureType バッジあり）
+- `problem-detail.html`: 課題詳細（条件・要求室・外構・設計留意事項を表示）
+- カードクリック → `problem-detail.html?id=N` → 「エスキスを開始」→ `app.html?problemId=N`
 
 ### 学習ポータル（index.html）
 - 6カードグリッド（バウハウスデザイン）
@@ -128,6 +134,7 @@
 state = {
   rooms: [{id, x, y, w, h, type, name, note}],  // mm座標
   walls: [{id, x1, y1, x2, y2}],                 // mm座標
+  connections: [{id, roomId1, roomId2}],           // 部屋間のコネクト線（IDはstring）
   site:  {x, y, w, h, cornerCuts, trapShortH, trapShortSide},
   view:  {ox, oy, scale},
   tool:  'pan'|'room'|'wall'|'erase'|'select',
@@ -136,6 +143,10 @@ state = {
   guides: [{id, y}],
 }
 ```
+
+⚠️ **重要**: `room.id` は `Date.now()` で生成される **number** 型。  
+`select.value` など DOM から取得した値は **string** 型になる。  
+connections の比較は必ず `String(id)` で正規化すること。
 
 ### 保存データ形式（localStorage）
 **エスキス保存** (`'eskisu_saves'`):
@@ -148,6 +159,7 @@ state = {
   problemTitle: "木造2階建専用住宅",
   rooms: [...],
   walls: [...],
+  connections: [...],
   site: {...}
 }
 ```
@@ -166,20 +178,52 @@ state = {
 }
 ```
 
-### problems.json のフィールド
+### problems.json のフィールド（v1.0スキーマ）
+
+詳細は `docs/problem-schema-spec.md` / `docs/problem-schema.json` を参照。
+
 ```javascript
 {
-  id, title, difficulty, structure, zoning, zoningSlope,
-  siteW, siteH,
-  coverage, far,
-  floorAreaMin,   // 新: 延床面積の下限 m²
-  floorAreaMax,   // 新: 延床面積の上限 m²
-  floorArea,      // 旧: 後方互換のため残存
-  siteAdj: { N:{type,width,opposite,oppositeWidth}, S:..., E:..., W:... },
-  reqRooms: [{name, floor, area, notes:[]}],
-  exteriorConds: [{type, note}]
+  id,           // integer, 必須
+  title,        // string, 必須
+  difficulty,   // "基礎"|"応用"|"実践", 必須
+  structure,    // string（例: "木造2階建"）, 必須
+  structureType,// "木造"|"RC"|"S造", 必須（フィルタ・バッジ用）
+  floors,       // integer 1-3
+  maxHeight,    // number (m)
+  eavesHeight,  // number (m)
+  zoning,       // string（用途地域）
+  zoningSlope,  // number（北側斜線勾配）
+  fireZone,     // string
+  coverage,     // number (%), 必須
+  far,          // number (%), 必須
+  coverageBonus,// string（角地加算等）
+  terrain,      // string
+  siteW,        // integer mm, 455の倍数, 必須
+  siteH,        // integer mm, 455の倍数, 必須
+  siteAdj: { N, S, E, W: { type, width?, opposite?, oppositeWidth? } },
+  designConditions: [string],  // 設計上の留意事項①②③（最大5件）
+  structureNotes: [string],    // 構造・高さに関する追加条件
+  floorAreaMin, // number (m²)
+  floorAreaMax, // number (m²)
+  floorAreaExclusion, // string（算入除外の注記）
+  notes,        // string（補足メモ、\n可）
+  reqRooms: [{
+    name,       // string, 必須
+    floor,      // "1F"|"2F"|"各階"|"どちらでも", 必須
+    category,   // string（共用部分/専用部分/居住部分/水回り 等）
+    qty,        // integer（省略時=1）
+    area,       // string（例: "20㎡以上"）
+    notes: [string]  // 特記事項（ア・イ・ウ形式で表示）
+  }],
+  exteriorConds: [{
+    type,       // string（例: "駐車場"）, 必須
+    notes: [string]  // 特記事項
+  }]
 }
 ```
+
+現在の課題数: **6問**（id: 1〜6、すべて木造）
 
 ### 定数（app.html 冒頭に定義済み）
 ```javascript
@@ -267,6 +311,7 @@ function escHtml(s) {
 - ✅ システムチェック（4項目）
 - ✅ 道路斜線・公園緩和チェック
 - ✅ 課題保存（自作課題）
+- ✅ コネクト線（部屋間の動線表示）
 - 🔲 エスキスの公開・投稿導線
 - 🔲 SNSシェア（Xへの画像投稿）
 
@@ -327,6 +372,7 @@ function escHtml(s) {
 | 画面 | 状態 | 役割 |
 |---|---|---|
 | index.html | ✅ 実装済み | 学習ポータル・課題選択・マイエスキス |
+| problem-detail.html | ✅ 実装済み | 課題詳細表示（?id=N） |
 | app.html | ✅ 実装済み | エスキス描画ツール本体 |
 | flashcard.html | 🔲 未実装 | フラッシュカード学習 |
 | tips.html | 🔲 未実装 | 解き方Tips閲覧 |
@@ -345,11 +391,11 @@ function escHtml(s) {
 - 既存コードを大きく書き換える場合は事前に申告する
 
 ### 判断を仰ぐべき事項
-- データ保存方式（現状: localStorage → 将来: サーバー移行のタイミング）
+- データ保存方式（現状: localStorage → 将来: Supabase等サーバー移行のタイミング）
 - ポイント経済の具体的な数値設定
-- 認証・ユーザー管理の導入時期と方式
+- 認証・ユーザー管理の導入時期と方式（候補: Supabase / Clerk）
 
-### サブエージェントへの引き継ぎ方
+### 新しいセッションへの引き継ぎ方
 ```
 /Users/satoufumiaki/Documents/制作物/アプリテスト/PROJECT_BRIEF.md を読んで
 現状を把握してください。コードは書かず、まず把握だけしてから報告してください。
@@ -360,11 +406,13 @@ function escHtml(s) {
 ## 13. 既知の課題・TODO
 
 ### 優先度高
-- [ ] problems.json の `floorAreaMin` / `floorAreaMax` への移行（現在 `floorArea` 単値のみ）
-- [ ] サーバーサイド保存（現状はlocalStorageのみ）
+- [ ] コネクト線の動作検証（デプロイ済み・実機確認待ち）
+- [ ] 課題数を増やす（現在6問、RC/S造の問題も追加したい）
+- [ ] 管理者向け課題メーカーツール（別プロジェクトで開発予定）
 
 ### 中期
-- [ ] ユーザー認証・アカウント管理
+- [ ] ユーザー認証・アカウント管理（候補: Supabase）
+- [ ] エスキスのクラウド保存（Supabase移行後）
 - [ ] エスキスの公開・ギャラリー機能
 - [ ] 掲示板機能
 - [ ] SNSシェア（エスキス画像をXへ）
@@ -380,7 +428,6 @@ function escHtml(s) {
 - [ ] ポイント経済の実装
 - [ ] 学科一問一答ドリル
 - [ ] 本年度試験課題タブ（試験後解放）
-- [ ] problems.json の課題追加（現状5問）
 
 ---
 
