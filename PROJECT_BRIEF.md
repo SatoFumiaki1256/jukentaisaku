@@ -1,7 +1,7 @@
 # PROJECT_BRIEF.md
 
 > Claude Code 引き継ぎドキュメント
-> 最終更新: 2026-04-21
+> 最終更新: 2026-04-27
 > 新しいセッションを開始したら、まずこのファイルを読んでください。
 > コードは書かず、まず現状を把握してから作業に入ってください。
 
@@ -9,8 +9,11 @@
 
 ## 1. プロジェクト概要
 
+**サイト名: SEZ HAUS（セズハウス）**
 **二級建築士 製図試験特化の独学者向けポータルサイト**
 
+- ブランド名: **SEZ HAUS** — UI ロゴ・`<title>`・OGP・`manifest.json` 等ユーザー対面の表記はこの名称で統一
+- ドメイン: `jukentaisaku.vercel.app`（名称とは別。当面変更しない）
 - 対象: 二級建築士試験の独学受験者
 - 軸: 学科ではなく **製図試験に特化**
 - 仕組み: エスキス練習 → 保存 → システムチェック → （将来）投稿・相互アドバイス → ポイント経済
@@ -25,10 +28,14 @@
 ├── index.html              — 学習ポータルトップページ（バウハウスデザイン）
 ├── problem-detail.html     — 課題詳細ページ（?id=N で課題表示）
 ├── app.html                — エスキス描画ツール本体（約4200行）
+├── flashcard.html          — フラッシュカード学習（4択クイズ形式）
+├── calc-training.html      — 計算トレーニング（電卓・斜線図SVG付き）
 ├── problems.json           — 課題データ（6問）
+├── cards.json              — フラッシュカードデータ（法規13枚を新スキーマ化済）
 ├── vercel.json             — Vercel CDN キャッシュ設定（no-cache）
 ├── manifest.json           — PWA用
 ├── mockup-bauhaus.jsx      — デザイン参照（React, 全5画面のモックアップ）
+├── SEZ_HAUS_BRAND_GUIDE.md — ブランドガイド・実装仕様書
 ├── PROJECT_BRIEF.md        — このファイル
 └── docs/                   — 機能・スキーマドキュメント
     ├── problem-schema.json       — 課題データ JSON Schema (Draft-07)
@@ -110,11 +117,44 @@
 ### 学習ポータル（index.html）
 - 6カードグリッド（バウハウスデザイン）
   - ✅ エスキス練習（実装済み）
-  - 🔲 フラッシュカード（準備中）
+  - ✅ フラッシュカード（実装済み）
   - 🔲 解き方Tips（準備中）
-  - 🔲 計算トレーニング（準備中）
+  - ✅ 計算トレーニング（実装済み）
   - 🔲 法規コラム（準備中）
   - 🔲 詳細図トレーニング（準備中）
+
+---
+
+## 3.5 実装済み機能（flashcard.html）
+
+### 4択クイズ形式
+- 表面に問題文 + 4択ボタン、選択するとすぐ裏面へフリップ
+- 裏面に **正誤バナー**・正解・解説（`lawRef` 分離）・苦手登録/解除トグル・「次へ」ボタン
+- キーボード操作: `1〜4` で選択、`Space`/`Enter` で次へ、`↓` でスキップ
+
+### カードデータ（cards.json）
+- カテゴリ: 法規 / 構造 / 計算 / エスキス / 用語
+- 法規 13枚（`fc_001〜013`）を新スキーマ化済（4択対応）
+- 構造以降は旧スキーマ（front/back）のまま、UI 側で後方互換 fallback
+- 任意フィールド: `questionImage` / `explanationImage`（画像追加時は `img/flashcard/` を作成して配置）
+
+### 進捗管理（localStorage）
+- 苦手カード登録、正答数記録（`fc_progress`）
+
+---
+
+## 3.6 実装済み機能（calc-training.html）
+
+### カテゴリ
+- 建蔽率 / 容積率 / **斜線**（道路・北側・隣地） / 面積換算 / **スロープ**
+
+### 機能
+- 数値ランダム生成（敷地サイズ・建蔽率等）
+- 計算式入力 → 正誤判定（許容誤差つき）
+- **斜線図SVG**: 道路斜線（基本/公園緩和）・北側斜線・隣地斜線の説明図
+- `renderProblemImage()` ヘルパー: 信頼SVG文字列 / 画像URL の両対応
+- 問題側・フィードバック側の両方に画像枠
+- 電卓UI付き
 
 ---
 
@@ -317,9 +357,9 @@ function escHtml(s) {
 
 ### 柱2: 学習コンテンツ（一部実装・拡張中）
 - ✅ エスキス練習（app.html）
-- 🔲 フラッシュカード（`docs/feature-flashcard.md` 参照）
+- ✅ フラッシュカード（`flashcard.html`／4択クイズ・法規13枚） — `docs/feature-flashcard.md`
 - 🔲 解き方Tips（`docs/feature-tips.md` 参照）
-- 🔲 計算トレーニング（`docs/feature-calc-training.md` 参照）
+- ✅ 計算トレーニング（`calc-training.html`／斜線図SVG・スロープ含む） — `docs/feature-calc-training.md`
 - 🔲 法規コラム（`docs/feature-law.md` 参照）
 - 🔲 詳細図トレーニング（`docs/feature-detail-drawing.md` 参照）
 
@@ -374,8 +414,11 @@ function escHtml(s) {
 | index.html | ✅ 実装済み | 学習ポータル・課題選択・マイエスキス |
 | problem-detail.html | ✅ 実装済み | 課題詳細表示（?id=N） |
 | app.html | ✅ 実装済み | エスキス描画ツール本体 |
-| flashcard.html | 🔲 未実装 | フラッシュカード学習 |
+| flashcard.html | ✅ 実装済み | フラッシュカード学習（4択クイズ） |
+| calc-training.html | ✅ 実装済み | 計算トレーニング（電卓・斜線図SVG） |
 | tips.html | 🔲 未実装 | 解き方Tips閲覧 |
+| law.html | 🔲 未実装 | 法規コラム |
+| detail.html | 🔲 未実装 | 詳細図トレーニング |
 | gallery.html | 🔲 未実装 | 投稿エスキス一覧 |
 | board.html | 🔲 未実装 | 掲示板（3タブ） |
 | mypage.html | 🔲 未実装 | プロフィール・ポイント・実績 |
@@ -418,9 +461,11 @@ function escHtml(s) {
 - [ ] SNSシェア（エスキス画像をXへ）
 
 ### 学習コンテンツ（各 docs/*.md 参照）
-- [ ] フラッシュカード実装
+- [x] フラッシュカード実装（4択クイズ化済・法規13枚）
+- [ ] フラッシュカード カード追加（構造・計算・エスキス・用語を新スキーマ化）
 - [ ] 解き方Tips実装
-- [ ] 計算トレーニング実装
+- [x] 計算トレーニング実装（斜線図SVG・スロープ含む）
+- [ ] 計算トレーニング 問題追加（採光計算・床面積計算・公園緩和等）
 - [ ] 法規コラム実装
 - [ ] 詳細図トレーニング実装
 
