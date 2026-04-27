@@ -76,6 +76,20 @@
       color:var(--inkSoft);font-family:'Archivo',sans-serif;margin-bottom:10px;
     }
     #prob-question{font-size:16px;font-weight:700;line-height:1.7;color:var(--ink);}
+    #prob-image{
+      display:block;margin:12px auto 0;text-align:center;
+    }
+    #prob-image[hidden]{display:none;}
+    #prob-image img,#prob-image svg{
+      max-width:100%;max-height:220px;border:1px solid var(--rule);background:#fff;
+    }
+    #fb-image{
+      display:block;margin:0 auto 8px;text-align:center;
+    }
+    #fb-image[hidden]{display:none;}
+    #fb-image img,#fb-image svg{
+      max-width:100%;max-height:220px;background:#fff;
+    }
     #prob-hint{
       font-size:11px;color:var(--blue);margin-top:8px;line-height:1.6;
       display:none;
@@ -189,9 +203,10 @@
   <button class="cat-tab active" data-cat="all">すべて</button>
   <button class="cat-tab" data-cat="coverage">建蔽率</button>
   <button class="cat-tab" data-cat="far">容積率</button>
-  <button class="cat-tab" data-cat="slope">道路斜線</button>
+  <button class="cat-tab" data-cat="slope">斜線</button>
   <button class="cat-tab" data-cat="area">面積換算</button>
   <button class="cat-tab" data-cat="grid">グリッド</button>
+  <button class="cat-tab" data-cat="ramp">スロープ</button>
 </div>
 
 <div id="problem-area">
@@ -203,12 +218,14 @@
   <div id="problem-card">
     <div class="prob-type-label" id="prob-type"></div>
     <div id="prob-question">読み込み中...</div>
+    <div id="prob-image" hidden></div>
     <div id="prob-hint"></div>
     <button id="hint-btn" onclick="showHint()">ヒントを見る</button>
   </div>
 
   <div id="feedback">
     <div class="fb-head" id="fb-head"></div>
+    <div id="fb-image" hidden></div>
     <div class="fb-formula" id="fb-formula"></div>
     <button id="next-btn" onclick="nextQuestion()">次の問題 →</button>
   </div>
@@ -269,6 +286,122 @@
 // 問題生成
 // ======================================================
 function rnd(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+// 画像レンダリング: imageSvg(信頼できるSVG文字列) > image(URL) > 非表示
+function renderProblemImage(wrap, svgStr, url, alt){
+  wrap.replaceChildren();
+  if(svgStr){
+    wrap.innerHTML = svgStr;       // SVG文字列はジェネレータ内で構築（信頼可）
+    wrap.hidden = false;
+  } else if(url){
+    const img = document.createElement('img');
+    img.src = url;
+    img.alt = alt || '';
+    wrap.appendChild(img);
+    wrap.hidden = false;
+  } else {
+    wrap.hidden = true;
+  }
+}
+
+// ===== 斜線図 SVG ジェネレータ =====
+// 道路斜線（基本）: 道路の反対側境界線から勾配で立ち上がる
+function svgRoadSlope({road, setback, slope, ans, showSlope}){
+  const s=11, buildW=4, padL=20, padR=showSlope?70:30, padT=18, padB=34;
+  const totalM = road + setback + buildW;
+  const maxH   = showSlope ? totalM * slope : 4;  // 問題側は建物の頭が見える程度に圧縮
+  const drawH  = showSlope ? ans : 1.2;
+  const W = padL + totalM*s + padR;
+  const H = padT + maxH*s + padB;
+  const gy = H - padB;
+  const xOpp=padL, xNear=padL+road*s, xBld=xNear+setback*s, xEnd=xBld+buildW*s;
+  const bH = drawH*s;
+  const sb = setback>0 ? `
+    <line x1="${xBld}" y1="${gy-4}" x2="${xBld}" y2="${gy+4}" stroke="#333"/>
+    <text x="${(xNear+xBld)/2}" y="${gy+24}" text-anchor="middle" font-size="9">SB${setback}m</text>` : '';
+  const sl = showSlope ? `
+    <line x1="${xOpp}" y1="${gy}" x2="${xEnd}" y2="${gy-totalM*s*slope}" stroke="#e63946" stroke-width="1.5" stroke-dasharray="4,3"/>
+    <line x1="${xEnd}" y1="${gy}" x2="${xEnd}" y2="${gy-bH}" stroke="#e63946" stroke-width="0.5" stroke-dasharray="2,2"/>
+    <text x="${xEnd+5}" y="${gy-bH/2}" fill="#e63946" font-size="11" font-weight="bold">${ans}m</text>
+    <text x="${xOpp+6}" y="${gy-6}" font-size="9" fill="#e63946">勾配 ${slope}</text>` :
+    `<text x="${xBld+buildW*s/2}" y="${gy-bH-4}" text-anchor="middle" font-size="10">建物（高さ?）</text>`;
+  return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" style="font-family:sans-serif;display:block;height:auto;">
+    <line x1="0" y1="${gy}" x2="${W}" y2="${gy}" stroke="#333"/>
+    <rect x="${xOpp}" y="${gy}" width="${road*s}" height="6" fill="#bbb"/>
+    <line x1="${xOpp}" y1="${gy-4}" x2="${xOpp}" y2="${gy+4}" stroke="#333"/>
+    <line x1="${xNear}" y1="${gy-4}" x2="${xNear}" y2="${gy+4}" stroke="#333"/>
+    <text x="${(xOpp+xNear)/2}" y="${gy+22}" text-anchor="middle" font-size="10">道路 ${road}m</text>
+    ${sb}
+    <rect x="${xBld}" y="${gy-bH}" width="${buildW*s}" height="${bH}" fill="${showSlope?'#fafafa':'#e8d8b8'}" stroke="#333" stroke-width="1.5"/>
+    ${sl}
+  </svg>`;
+}
+
+// 道路斜線（公園緩和）: 公園幅の1/2を反対側境界線として斜線を立ち上げる
+function svgParkRelax({road, park, slope, ans, showSlope}){
+  const s=10, buildW=4, padL=20, padR=showSlope?70:30, padT=18, padB=34;
+  const totalM = park + road + buildW;
+  const slopeRunM = totalM - park/2;              // 緩和起点（公園中心）から建物外側端まで
+  const maxH   = showSlope ? slopeRunM * slope : 4;
+  const drawH  = showSlope ? ans : 1.2;
+  const W = padL + totalM*s + padR;
+  const H = padT + maxH*s + padB;
+  const gy = H - padB;
+  const xPark0=padL, xParkM=padL+park*s/2, xRoad0=padL+park*s, xRoad1=xRoad0+road*s;
+  const xBld=xRoad1, xEnd=xBld+buildW*s;
+  const bH = drawH*s;
+  const sl = showSlope ? `
+    <line x1="${xParkM}" y1="${gy}" x2="${xEnd}" y2="${gy-slopeRunM*s*slope}" stroke="#e63946" stroke-width="1.5" stroke-dasharray="4,3"/>
+    <line x1="${xEnd}" y1="${gy}" x2="${xEnd}" y2="${gy-bH}" stroke="#e63946" stroke-width="0.5" stroke-dasharray="2,2"/>
+    <text x="${xEnd+5}" y="${gy-bH/2}" fill="#e63946" font-size="11" font-weight="bold">${ans}m</text>
+    <line x1="${xParkM}" y1="${gy-12}" x2="${xParkM}" y2="${gy}" stroke="#e63946" stroke-width="1.2"/>
+    <text x="${xParkM}" y="${gy-15}" text-anchor="middle" font-size="8" fill="#e63946">緩和起点</text>` :
+    `<text x="${xBld+buildW*s/2}" y="${gy-bH-4}" text-anchor="middle" font-size="10">建物（高さ?）</text>`;
+  return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" style="font-family:sans-serif;display:block;height:auto;">
+    <line x1="0" y1="${gy}" x2="${W}" y2="${gy}" stroke="#333"/>
+    <rect x="${xPark0}" y="${gy}" width="${park*s}" height="8" fill="#cfe6c2" stroke="#333" stroke-width="0.5"/>
+    <text x="${(xPark0+xRoad0)/2}" y="${gy+22}" text-anchor="middle" font-size="10">公園 ${park}m</text>
+    <rect x="${xRoad0}" y="${gy}" width="${road*s}" height="6" fill="#bbb"/>
+    <text x="${(xRoad0+xRoad1)/2}" y="${gy+22}" text-anchor="middle" font-size="10">道路 ${road}m</text>
+    <line x1="${xRoad0}" y1="${gy-4}" x2="${xRoad0}" y2="${gy+4}" stroke="#333"/>
+    <line x1="${xRoad1}" y1="${gy-4}" x2="${xRoad1}" y2="${gy+4}" stroke="#333"/>
+    <rect x="${xBld}" y="${gy-bH}" width="${buildW*s}" height="${bH}" fill="${showSlope?'#fafafa':'#e8d8b8'}" stroke="#333" stroke-width="1.5"/>
+    ${sl}
+  </svg>`;
+}
+
+// 北側斜線: 隣地境界線上5mから1.25勾配で立ち上がる（南側＝右へ）
+function svgNorthSlope({setback, ans, showSlope}){
+  const s=14, buildW=4, neighborW=4, padL=20, padR=showSlope?70:30, padT=22, padB=34;
+  const totalM = neighborW + setback + buildW;
+  const baseHm = 5, gradient = 1.25;
+  const maxH = showSlope ? baseHm + (setback+buildW)*gradient : 4;
+  const drawH = showSlope ? ans : 1.2;
+  const W = padL + totalM*s + padR;
+  const H = padT + maxH*s + padB;
+  const gy = H - padB;
+  const xN0=padL, xBdr=padL+neighborW*s, xBld=xBdr+setback*s, xEnd=xBld+buildW*s;
+  const bH = drawH*s, baseHpx = baseHm*s;
+  const sb = setback>0 ? `
+    <line x1="${xBld}" y1="${gy-4}" x2="${xBld}" y2="${gy+4}" stroke="#333"/>
+    <text x="${(xBdr+xBld)/2}" y="${gy+22}" text-anchor="middle" font-size="9">SB${setback}m</text>` : '';
+  const sl = showSlope ? `
+    <line x1="${xBdr}" y1="${gy-baseHpx}" x2="${xEnd}" y2="${gy-baseHpx-(setback+buildW)*s*gradient}" stroke="#e63946" stroke-width="1.5" stroke-dasharray="4,3"/>
+    <line x1="${xBdr}" y1="${gy}" x2="${xBdr}" y2="${gy-baseHpx}" stroke="#e63946" stroke-width="0.6" stroke-dasharray="2,2"/>
+    <text x="${xBdr-3}" y="${gy-baseHpx+3}" text-anchor="end" font-size="9" fill="#e63946">5m</text>
+    <line x1="${xEnd}" y1="${gy}" x2="${xEnd}" y2="${gy-bH}" stroke="#e63946" stroke-width="0.5" stroke-dasharray="2,2"/>
+    <text x="${xEnd+5}" y="${gy-bH/2}" fill="#e63946" font-size="11" font-weight="bold">${ans}m</text>` :
+    `<text x="${xBld+buildW*s/2}" y="${gy-bH-4}" text-anchor="middle" font-size="10">建物（高さ?）</text>`;
+  return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" style="font-family:sans-serif;display:block;height:auto;">
+    <line x1="0" y1="${gy}" x2="${W}" y2="${gy}" stroke="#333"/>
+    <text x="${(xN0+xBdr)/2}" y="${gy+22}" text-anchor="middle" font-size="9">北側隣地</text>
+    <line x1="${xBdr}" y1="${padT}" x2="${xBdr}" y2="${gy+8}" stroke="#333" stroke-width="1.5"/>
+    <text x="${xBdr}" y="${padT-6}" text-anchor="middle" font-size="9">隣地境界</text>
+    ${sb}
+    <rect x="${xBld}" y="${gy-bH}" width="${buildW*s}" height="${bH}" fill="${showSlope?'#fafafa':'#e8d8b8'}" stroke="#333" stroke-width="1.5"/>
+    ${sl}
+  </svg>`;
+}
 function r1(n){ return Math.round(n*10)/10; }
 function r2(n){ return Math.round(n*100)/100; }
 
@@ -392,6 +525,8 @@ const PROBLEM_TYPES = {
         unit:'m',
         hint:`高さ = (道路幅員 + セットバック) × 勾配`,
         formula:`(${road} + ${setback}) × ${slope}\n= ${road+setback} × ${slope}\n= **${ans}m**`,
+        imageSvg:         svgRoadSlope({road, setback, slope, ans, showSlope:false}),
+        feedbackImageSvg: svgRoadSlope({road, setback, slope, ans, showSlope:true}),
       };
     },
     // 公園緩和
@@ -409,6 +544,8 @@ const PROBLEM_TYPES = {
         unit:'m',
         hint:`公園幅の1/2を道路幅員に加算できる（令134条）`,
         formula:`有効道路幅 = ${road} + ${park}/2 = ${eff}m\n高さ = ${eff} × ${slope}\n= **${ans}m**`,
+        imageSvg:         svgParkRelax({road, park, slope, ans, showSlope:false}),
+        feedbackImageSvg: svgParkRelax({road, park, slope, ans, showSlope:true}),
       };
     },
     // 北側斜線（低層住居）
@@ -423,6 +560,8 @@ const PROBLEM_TYPES = {
         unit:'m',
         hint:'北側斜線：隣地境界上5m + (セットバック距離 × 1.25)',
         formula:`5 + ${setback} × 1.25\n= 5 + ${r2(setback*1.25)}\n= **${ans}m**`,
+        imageSvg:         svgNorthSlope({setback, ans, showSlope:false}),
+        feedbackImageSvg: svgNorthSlope({setback, ans, showSlope:true}),
       };
     },
   ],
@@ -537,6 +676,25 @@ const PROBLEM_TYPES = {
       };
     },
   ],
+
+  ramp: [
+    // スロープの長さを求める（バリアフリー：高低差 × 勾配の分母）
+    () => {
+      const heightCm = rnd([15, 30, 45, 60, 75, 90, 100]);
+      const n        = rnd([12, 15, 20]);
+      const heightM  = heightCm / 100;
+      const ans      = r2(heightM * n);
+      return {
+        typeLabel:'スロープの長さを求める',
+        question:`高低差 ${heightCm}cm を勾配 1/${n} のスロープで解消する。\n\nスロープの水平距離は何m？（小数第2位まで）`,
+        answer: ans,
+        tolerance: 0.05,
+        unit:'m',
+        hint:'スロープ長さ(m) = 高低差(m) × 勾配の分母\n例：高さ60cm、勾配1/12 → 0.6 × 12 = 7.2m',
+        formula:`高低差 = ${heightCm}cm = ${heightM}m\nスロープ長さ = 高低差 × 勾配の分母\n= ${heightM} × ${n}\n= **${ans}m**`,
+      };
+    },
+  ],
 };
 
 // ======================================================
@@ -586,6 +744,7 @@ function showQuestion(){
 
   document.getElementById('prob-type').textContent    = q.typeLabel;
   document.getElementById('prob-question').textContent = q.question;
+  renderProblemImage(document.getElementById('prob-image'), q.imageSvg, q.image, q.imageAlt);
   document.getElementById('prob-hint').style.display  = 'none';
   document.getElementById('prob-hint').textContent    = '';
   document.getElementById('hint-btn').style.display   = '';
@@ -636,11 +795,13 @@ function submitAnswer(){
 
 function showFeedback(ok, q){
   const fb = document.getElementById('feedback');
-  fb.style.display = '';
+  fb.style.display = 'block';
   fb.className = ok ? 'correct' : 'incorrect';
 
   document.getElementById('fb-head').textContent   = ok ? '✅ 正解！' : `❌ 不正解 （正解：${q.answer}${q.unit}）`;
   document.getElementById('fb-head').className     = ok ? 'fb-head ok' : 'fb-head ng';
+
+  renderProblemImage(document.getElementById('fb-image'), q.feedbackImageSvg, q.feedbackImage, q.feedbackImageAlt);
 
   // マークダウン **bold** を変換
   const formula = q.formula.replace(/\*\*(.*?)\*\*/g, (_, s) => `【${s}】`);
